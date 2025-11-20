@@ -398,22 +398,29 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void BringFocusToEditor()
     {
+        if (_editor == null)
+        {
+            return; // Editor not initialized yet
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
+            if (_editor == null) return; // Double-check after async dispatch
+
             // Suppress event reactions during programmatic focus/caret adjustments
             _suppressEditorStateSync = true;
             try
             {
                 // Make sure caret is visible:
-                Editor.TextArea.Caret.CaretBrush = new SolidColorBrush(Colors.Red);
+                _editor.TextArea.Caret.CaretBrush = new SolidColorBrush(Colors.Red);
 
                 // Ensure selection is visible
-                Editor.TextArea.SelectionBrush = new SolidColorBrush(Colors.SteelBlue);
-                if (!Editor.IsFocused)
+                _editor.TextArea.SelectionBrush = new SolidColorBrush(Colors.SteelBlue);
+                if (!_editor.IsFocused)
                 {
-                    Editor.Focus();
+                    _editor.Focus();
                 }
-                Editor.TextArea.Caret.BringCaretToView();
+                _editor.TextArea.Caret.BringCaretToView();
             }
             finally
             {
