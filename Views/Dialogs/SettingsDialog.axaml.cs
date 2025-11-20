@@ -19,7 +19,6 @@
 // SOFTWARE.
 
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using MermaidPad.ViewModels.Dialogs;
 
 namespace MermaidPad.Views.Dialogs;
@@ -34,19 +33,14 @@ public partial class SettingsDialog : Window
     public SettingsDialog(SettingsDialogViewModel viewModel) : this()
     {
         DataContext = viewModel;
-    }
 
-    private void OnSaveClick(object? sender, RoutedEventArgs e)
-    {
-        //TODO implement this or move to MVVM RelayCommand
-        Close(true);
-        throw new NotImplementedException("TODO");
-    }
-
-    private void OnCancelClick(object? sender, RoutedEventArgs e)
-    {
-        //TODO implement this or move to MVVM RelayCommand
-        Close(false);
-        throw new NotImplementedException("TODO");
+        // Observe DialogResult changes and close window accordingly
+        viewModel.PropertyChanged += (sender, e) =>
+        {
+            if (e.PropertyName == nameof(viewModel.DialogResult) && viewModel.DialogResult.HasValue)
+            {
+                Close(viewModel.DialogResult.Value);
+            }
+        };
     }
 }
