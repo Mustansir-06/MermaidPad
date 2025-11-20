@@ -46,7 +46,7 @@ public class DockFactory : Factory
     /// Creates the initial docking layout with three panels: Editor, Preview, and AI Assistant.
     /// </summary>
     /// <returns>The root dock element containing the layout.</returns>
-    public override IDock CreateLayout()
+    public override IRootDock CreateLayout()
     {
         // Create tool docks for each panel
         // Context is set to MainViewModel so DataContext binding works in UserControls

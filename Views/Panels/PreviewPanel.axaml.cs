@@ -24,22 +24,16 @@ using AvaloniaWebView;
 namespace MermaidPad.Views.Panels;
 
 /// <summary>
-/// UserControl wrapper for the Preview panel that exposes the WebView control.
+/// UserControl wrapper for the Preview panel.
+/// The WebView control is accessible via the Preview field generated from x:Name.
 /// </summary>
 public partial class PreviewPanel : UserControl
 {
-    /// <summary>
-    /// Gets the WebView control contained in this panel.
-    /// </summary>
-    public WebView Preview { get; private set; }
-
     /// <summary>
     /// Initializes a new instance of the <see cref="PreviewPanel"/> class.
     /// </summary>
     public PreviewPanel()
     {
         InitializeComponent();
-        Preview = this.FindControl<WebView>("Preview")
-            ?? throw new InvalidOperationException("Preview WebView control not found in PreviewPanel");
     }
 }

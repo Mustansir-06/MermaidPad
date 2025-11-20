@@ -19,39 +19,33 @@
 // SOFTWARE.
 
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using AvaloniaEdit;
 
 namespace MermaidPad.Views.Panels;
 
 /// <summary>
-/// UserControl wrapper for the Editor panel that exposes the TextEditor control.
+/// UserControl wrapper for the Editor panel.
+/// The TextEditor control is accessible via the Editor field generated from x:Name.
 /// </summary>
 public partial class EditorPanel : UserControl
 {
-    /// <summary>
-    /// Gets the TextEditor control contained in this panel.
-    /// </summary>
-    public TextEditor Editor { get; private set; }
-
     /// <summary>
     /// Initializes a new instance of the <see cref="EditorPanel"/> class.
     /// </summary>
     public EditorPanel()
     {
         InitializeComponent();
-        Editor = this.FindControl<TextEditor>("Editor")
-            ?? throw new InvalidOperationException("Editor control not found in EditorPanel");
     }
 
     /// <summary>
     /// Handles the context menu opening event for the Editor.
+    /// The DataContext (MainViewModel) provides the CanCopyClipboard and CanPasteClipboard properties.
     /// </summary>
     /// <param name="sender">The context menu.</param>
     /// <param name="e">Event arguments.</param>
-    private void GetContextMenuState(object? sender, RoutedEventArgs e)
+    private void GetContextMenuState(object? sender, System.EventArgs e)
     {
-        // This will be called from XAML - the actual logic is in MainWindow
-        // We need to forward this event or the DataContext will handle it
+        // Event handler for context menu Opening event
+        // The binding to MainViewModel properties handles the actual state
     }
 }
