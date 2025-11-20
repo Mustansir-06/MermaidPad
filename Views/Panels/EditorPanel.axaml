@@ -34,7 +34,7 @@
       ShowLineNumbers="True"
       VerticalScrollBarVisibility="Auto">
       <edit:TextEditor.ContextMenu>
-        <ContextMenu Opening="GetContextMenuState">
+        <ContextMenu>
           <MenuItem
             Header="Copy"
             IsEnabled="{Binding CanCopyClipboard}"/>

@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 using MermaidPad.Models;
+using MermaidPad.Services.Platforms;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text.Json;
@@ -52,6 +53,11 @@ public sealed class SettingsService
     private readonly ILogger<SettingsService>? _logger;
 
     /// <summary>
+    /// Secure storage service for encrypting/decrypting sensitive data like API keys.
+    /// </summary>
+    private readonly ISecureStorageService? _secureStorage;
+
+    /// <summary>
     /// The expected file name for persisted settings.
     /// </summary>
     private const string SettingsFileName = "settings.json";
@@ -69,9 +75,13 @@ public sealed class SettingsService
     /// <param name="logger">
     /// Optional <see cref="ILogger{SettingsService}"/> for diagnostic messages. May be <see langword="null"/>.
     /// </param>
-    public SettingsService(ILogger<SettingsService>? logger = null)
+    /// <param name="secureStorage">
+    /// Optional <see cref="ISecureStorageService"/> for encrypting/decrypting sensitive data. May be <see langword="null"/>.
+    /// </param>
+    public SettingsService(ILogger<SettingsService>? logger = null, ISecureStorageService? secureStorage = null)
     {
         _logger = logger;
+        _secureStorage = secureStorage;
         string baseDir = GetConfigDirectory();
         Directory.CreateDirectory(baseDir);
         _settingsPath = Path.Combine(baseDir, SettingsFileName);
@@ -244,6 +254,52 @@ public sealed class SettingsService
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Settings save failed");
+        }
+    }
+
+    /// <summary>
+    /// Encrypts a plain text API key using platform-specific secure storage.
+    /// </summary>
+    /// <param name="plainKey">The plain text API key to encrypt.</param>
+    /// <returns>The encrypted API key, or empty string if encryption fails or secure storage is unavailable.</returns>
+    public string EncryptApiKey(string plainKey)
+    {
+        if (_secureStorage == null || string.IsNullOrWhiteSpace(plainKey))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return _secureStorage.Encrypt(plainKey);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to encrypt API key");
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Decrypts an encrypted API key using platform-specific secure storage.
+    /// </summary>
+    /// <param name="encryptedKey">The encrypted API key to decrypt.</param>
+    /// <returns>The plain text API key, or empty string if decryption fails or secure storage is unavailable.</returns>
+    public string DecryptApiKey(string encryptedKey)
+    {
+        if (_secureStorage == null || string.IsNullOrWhiteSpace(encryptedKey))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return _secureStorage.Decrypt(encryptedKey);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to decrypt API key");
+            return string.Empty;
         }
     }
 }

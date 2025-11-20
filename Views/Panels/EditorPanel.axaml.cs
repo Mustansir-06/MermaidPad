@@ -36,16 +36,4 @@ public partial class EditorPanel : UserControl
     {
         InitializeComponent();
     }
-
-    /// <summary>
-    /// Handles the context menu opening event for the Editor.
-    /// The DataContext (MainViewModel) provides the CanCopyClipboard and CanPasteClipboard properties.
-    /// </summary>
-    /// <param name="sender">The context menu.</param>
-    /// <param name="e">Event arguments.</param>
-    private void GetContextMenuState(object? sender, System.EventArgs e)
-    {
-        // Event handler for context menu Opening event
-        // The binding to MainViewModel properties handles the actual state
-    }
 }

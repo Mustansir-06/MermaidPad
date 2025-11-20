@@ -149,6 +149,12 @@ public sealed partial class MainWindow : Window
             _editor = editorPanel.Editor;
             _logger.LogInformation("Editor control found in EditorPanel");
 
+            // Subscribe to context menu opening event
+            if (_editor.ContextMenu != null)
+            {
+                _editor.ContextMenu.Opening += GetContextMenuState;
+            }
+
             // Initialize editor with ViewModel data
             SetEditorStateWithValidation(
                 _vm.DiagramText,
