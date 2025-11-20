@@ -103,9 +103,6 @@ public sealed partial class MainWindow : Window
 
         _logger.LogInformation("=== MainWindow Initialization Started ===");
 
-        // Initialize syntax highlighting before wiring up OnThemeChanged
-        InitializeSyntaxHighlighting();
-
         // Store event handlers for proper cleanup
         _openedHandler = OnOpened;
         Opened += _openedHandler;
@@ -154,6 +151,9 @@ public sealed partial class MainWindow : Window
             {
                 _editor.ContextMenu.Opening += GetContextMenuState;
             }
+
+            // Initialize syntax highlighting now that Editor is available
+            InitializeSyntaxHighlighting();
 
             // Initialize editor with ViewModel data
             SetEditorStateWithValidation(
@@ -296,6 +296,8 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void ScheduleEditorStateSyncIfNeeded()
     {
+        if (_editor == null) return;
+
         int selectionStart = Editor.SelectionStart;
         int selectionLength = Editor.SelectionLength;
         int caretOffset = Editor.CaretOffset;
@@ -332,7 +334,7 @@ public sealed partial class MainWindow : Window
     /// <param name="e">Property changed event arguments describing which property changed.</param>
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_suppressEditorStateSync)
+        if (_suppressEditorStateSync || _editor == null)
         {
             return;
         }
