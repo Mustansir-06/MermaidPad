@@ -1,3 +1,4 @@
+
 // MIT License
 // Copyright (c) 2025 Dave Black
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,13 +19,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-namespace MermaidPad.Services;
+using Avalonia.Controls;
 
-//TODO - add implementation
-public sealed class TelemetryService
+namespace MermaidPad.Views.Panels;
+
+/// <summary>
+/// UserControl wrapper for the Preview panel that exposes the WebView control.
+/// </summary>
+public sealed partial class PreviewPanel : UserControl
 {
-    public void TrackEvent(string name)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PreviewPanel"/> class.
+    /// </summary>
+    public PreviewPanel()
     {
-        //TODO - add implementation
+        InitializeComponent();
     }
 }

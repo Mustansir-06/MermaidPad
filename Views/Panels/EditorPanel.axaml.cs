@@ -18,13 +18,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-namespace MermaidPad.Services;
+using Avalonia.Controls;
 
-//TODO - add implementation
-public sealed class SyntaxHighlightingService
+namespace MermaidPad.Views.Panels;
+
+/// <summary>
+/// UserControl wrapper for the Editor panel.
+/// The TextEditor control is accessible via the Editor field generated from x:Name.
+/// </summary>
+public sealed partial class EditorPanel : UserControl
 {
-    public void Initialize()
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EditorPanel"/> class.
+    /// </summary>
+    public EditorPanel()
     {
-        //TODO - add implementation (custom highlighting rules for Mermaid in AvaloniaEdit)
+        InitializeComponent();
     }
 }

@@ -4,9 +4,13 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
   xmlns:vm="clr-namespace:MermaidPad.ViewModels"
+  xmlns:views="clr-namespace:MermaidPad.Views"
+  xmlns:panels="clr-namespace:MermaidPad.Views.Panels"
   xmlns:wv="clr-namespace:AvaloniaWebView;assembly=Avalonia.WebView"
   xmlns:converters="clr-namespace:MermaidPad.Converters"
-  Title="MermaidPad - The Cross-Platform Mermaid Chart Editor"
+  xmlns:dock="clr-namespace:Dock.Avalonia.Controls;assembly=Dock.Avalonia"
+  xmlns:dockModel="clr-namespace:Dock.Model.Mvvm.Controls;assembly=Dock.Model.Mvvm"
+  Title="{Binding WindowTitle}"
   Width="1200"
   Height="800"
   x:DataType="vm:MainViewModel"
@@ -27,6 +31,54 @@
   </Window.Styles>
 
   <DockPanel>
+    <!-- Menu Bar -->
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_File">
+        <MenuItem
+          Command="{Binding OpenFileCommand}"
+          CommandParameter="{Binding StorageProvider, RelativeSource={RelativeSource AncestorType=TopLevel}}"
+          Header="_Open..."
+          InputGesture="Ctrl+O" />
+        <MenuItem
+          Command="{Binding SaveFileCommand}"
+          CommandParameter="{Binding StorageProvider, RelativeSource={RelativeSource AncestorType=TopLevel}}"
+          Header="_Save"
+          InputGesture="Ctrl+S"
+          IsEnabled="{Binding CanSave}" />
+        <MenuItem
+          Command="{Binding SaveFileAsCommand}"
+          CommandParameter="{Binding StorageProvider, RelativeSource={RelativeSource AncestorType=TopLevel}}"
+          Header="Save _As..."
+          InputGesture="Ctrl+Shift+S"
+          IsEnabled="{Binding HasText}" />
+        <Separator />
+<!--        <MenuItem Header="Recent Files" ItemsSource="{Binding RecentFiles}">
+          <MenuItem.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <MenuItem Header="{Binding}"
+                        Command="{ReflectionBinding $parent[TopLevel].DataContext.(vm:MainViewModel.OpenRecentFileCommand), FallbackValue={x:Null}}"
+                        CommandParameter="{Binding}" />
+            </DataTemplate>
+          </MenuItem.ItemTemplate>
+        </MenuItem>
+        <MenuItem
+          Command="{Binding ClearRecentFilesCommand}"
+          Header="Clear Recent Files"
+          IsEnabled="{Binding HasRecentFiles}" />
+        <Separator />-->
+        <MenuItem
+          Command="{Binding OpenSettingsCommand}"
+          Header="Se_ttings..."
+          InputGesture="Ctrl+T" />
+        <Separator />
+        <MenuItem
+          Click="OnExitClick"
+          Header="E_xit"
+          InputGesture="Alt+F4" />
+      </MenuItem>
+    </Menu>
+
+    <!-- Toolbar -->
     <StackPanel
       Margin="6"
       DockPanel.Dock="Top"
@@ -45,11 +97,9 @@
         Command="{Binding ExportCommand}"
         Content="Export"
         ToolTip.Tip="{Binding !IsWebViewReady, Converter={StaticResource BoolToTooltipConverter}}" />
-      <Button
-        Click="OnCloseClick"
-        Content="Close" />
+      <Separator Margin="6,0" />
       <CheckBox
-        Margin="12,0,0,0"
+        Margin="6,0,0,0"
         Content="Live Preview:"
         FlowDirection="RightToLeft"
         IsChecked="{Binding LivePreviewEnabled}"
@@ -68,22 +118,51 @@
         HorizontalAlignment="Right"
         VerticalAlignment="Center"
         Text="{Binding CurrentMermaidPadVersion}" />
+      <TextBlock
+        Margin="12,0,0,0"
+        VerticalAlignment="Center"
+        Foreground="Gray"
+        Text="{Binding StatusText}" />
     </StackPanel>
-    <Grid ColumnDefinitions="*,4,*">
-      <edit:TextEditor
-        x:Name="Editor"
-        Grid.Column="0"
-        FontFamily="Consolas"
-        HorizontalScrollBarVisibility="Auto"
-        LineNumbersForeground="Lime"
-        ShowLineNumbers="True"
-        SyntaxHighlighting="Mermaid"
-        VerticalScrollBarVisibility="Auto" />
-      <GridSplitter
-        Grid.Column="1"
-        Width="4"
-        Background="Gray" />
-      <wv:WebView x:Name="Preview" Grid.Column="2" />
-    </Grid>
+
+    <!-- Dockable Panel System -->
+    <dock:DockControl
+      x:Name="MainDock"
+      Margin="6,0,6,6"
+      Layout="{Binding Layout}">
+      <dock:DockControl.DataTemplates>
+
+        <!-- Editor Panel Template -->
+        <DataTemplate DataType="dockModel:Tool">
+          <Panel>
+            <Panel.IsVisible>
+              <Binding Path="Id" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="Editor" />
+            </Panel.IsVisible>
+            <panels:EditorPanel x:Name="EditorPanel" DataContext="{Binding Context}" />
+          </Panel>
+        </DataTemplate>
+
+        <!-- Preview Panel Template -->
+        <DataTemplate DataType="dockModel:Tool">
+          <Panel>
+            <Panel.IsVisible>
+              <Binding Path="Id" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="Preview" />
+            </Panel.IsVisible>
+            <panels:PreviewPanel x:Name="PreviewPanel" DataContext="{Binding Context}" />
+          </Panel>
+        </DataTemplate>
+
+        <!-- AI Assistant Panel Template -->
+        <DataTemplate DataType="dockModel:Tool">
+          <Panel>
+            <Panel.IsVisible>
+              <Binding Path="Id" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="AIAssistant" />
+            </Panel.IsVisible>
+            <views:AIPanel DataContext="{Binding Context}" />
+          </Panel>
+        </DataTemplate>
+
+      </dock:DockControl.DataTemplates>
+    </dock:DockControl>
   </DockPanel>
 </Window>
