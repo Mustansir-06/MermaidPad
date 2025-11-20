@@ -24,11 +24,16 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using AvaloniaEdit;
+using AvaloniaWebView;
+using Dock.Avalonia.Controls;
 using MermaidPad.Exceptions.Assets;
 using MermaidPad.Extensions;
 using MermaidPad.Services;
 using MermaidPad.Services.Highlighting;
 using MermaidPad.ViewModels;
+using MermaidPad.Views.Panels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
@@ -56,6 +61,14 @@ public sealed partial class MainWindow : Window
     private bool _suppressEditorStateSync; // Prevent circular updates
 
     private const int WebViewReadyTimeoutSeconds = 30;
+
+    // Controls accessed from Dock panels
+    private TextEditor? _editor;
+    private WebView? _preview;
+
+    // Properties to access controls (for code that expects them as properties)
+    private TextEditor Editor => _editor ?? throw new InvalidOperationException("Editor not initialized yet");
+    private WebView Preview => _preview ?? throw new InvalidOperationException("Preview not initialized yet");
 
     // Event handlers stored for proper cleanup
     private EventHandler? _activatedHandler;
@@ -106,20 +119,63 @@ public sealed partial class MainWindow : Window
         _activatedHandler = (_, _) => BringFocusToEditor();
         Activated += _activatedHandler;
 
-        // Initialize editor with ViewModel data using validation
-        SetEditorStateWithValidation(
-            _vm.DiagramText,
-            _vm.EditorSelectionStart,
-            _vm.EditorSelectionLength,
-            _vm.EditorCaretOffset
-        );
-
-        _logger.LogInformation("Editor initialized with {CharacterCount} characters", _vm.DiagramText.Length);
-
-        // Set up two-way synchronization between Editor and ViewModel
-        SetupEditorViewModelSync();
+        // Defer Editor/Preview initialization until DockControl loads
+        Loaded += OnWindowLoaded;
 
         _logger.LogInformation("=== MainWindow Initialization Completed ===");
+    }
+
+    /// <summary>
+    /// Handles the window Loaded event to initialize controls from the DockControl.
+    /// </summary>
+    private void OnWindowLoaded(object? sender, RoutedEventArgs e)
+    {
+        _logger.LogInformation("Window loaded, finding controls in DockControl");
+
+        // Find the DockControl
+        var dockControl = this.FindControl<DockControl>("MainDock");
+        if (dockControl == null)
+        {
+            _logger.LogError("DockControl not found");
+            return;
+        }
+
+        // Find EditorPanel and PreviewPanel in the visual tree
+        var editorPanel = dockControl.GetVisualDescendants().OfType<EditorPanel>().FirstOrDefault();
+        var previewPanel = dockControl.GetVisualDescendants().OfType<PreviewPanel>().FirstOrDefault();
+
+        if (editorPanel != null)
+        {
+            _editor = editorPanel.Editor;
+            _logger.LogInformation("Editor control found in EditorPanel");
+
+            // Initialize editor with ViewModel data
+            SetEditorStateWithValidation(
+                _vm.DiagramText,
+                _vm.EditorSelectionStart,
+                _vm.EditorSelectionLength,
+                _vm.EditorCaretOffset
+            );
+
+            _logger.LogInformation("Editor initialized with {CharacterCount} characters", _vm.DiagramText.Length);
+
+            // Set up two-way synchronization between Editor and ViewModel
+            SetupEditorViewModelSync();
+        }
+        else
+        {
+            _logger.LogWarning("EditorPanel not found in DockControl");
+        }
+
+        if (previewPanel != null)
+        {
+            _preview = previewPanel.Preview;
+            _logger.LogInformation("Preview WebView found in PreviewPanel");
+        }
+        else
+        {
+            _logger.LogWarning("PreviewPanel not found in DockControl");
+        }
     }
 
     /// <summary>
