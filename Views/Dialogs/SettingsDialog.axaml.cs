@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.ComponentModel;
 using Avalonia.Controls;
 using MermaidPad.ViewModels.Dialogs;
 
@@ -25,6 +26,8 @@ namespace MermaidPad.Views.Dialogs;
 
 public partial class SettingsDialog : Window
 {
+    private SettingsDialogViewModel? _viewModel;
+
     public SettingsDialog()
     {
         InitializeComponent();
@@ -32,15 +35,30 @@ public partial class SettingsDialog : Window
 
     public SettingsDialog(SettingsDialogViewModel viewModel) : this()
     {
+        _viewModel = viewModel;
         DataContext = viewModel;
 
         // Observe DialogResult changes and close window accordingly
-        viewModel.PropertyChanged += (sender, e) =>
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        // Unsubscribe when dialog closes to prevent memory leak
+        Closed += (sender, e) =>
         {
-            if (e.PropertyName == nameof(viewModel.DialogResult) && viewModel.DialogResult.HasValue)
+            if (_viewModel != null)
             {
-                Close(viewModel.DialogResult.Value);
+                _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+                _viewModel = null;
             }
         };
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_viewModel != null &&
+            e.PropertyName == nameof(_viewModel.DialogResult) &&
+            _viewModel.DialogResult.HasValue)
+        {
+            Close(_viewModel.DialogResult.Value);
+        }
     }
 }
