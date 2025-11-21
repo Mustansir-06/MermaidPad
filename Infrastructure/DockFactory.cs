@@ -32,21 +32,23 @@ namespace MermaidPad.Infrastructure;
 /// <summary>
 /// Factory for creating and configuring the docking layout for MermaidPad.
 /// </summary>
+/// <remarks>
+/// This factory follows the ContextLocator pattern from the Dock library documentation.
+/// ViewModels are not stored in the factory; instead, they are passed as parameters to
+/// initialization methods where ContextLocator closures capture them.
+/// </remarks>
 public sealed class DockFactory : Factory
 {
-    private readonly MainViewModel _mainViewModel;
     private readonly DockSerializer _serializer;
     private readonly ILogger<DockFactory>? _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DockFactory"/> class.
     /// </summary>
-    /// <param name="mainViewModel">The main view model containing the panel view models.</param>
     /// <param name="serializer">The dock serializer for saving/loading layouts.</param>
     /// <param name="logger">Optional logger for diagnostic output.</param>
-    public DockFactory(MainViewModel mainViewModel, DockSerializer serializer, ILogger<DockFactory>? logger = null)
+    public DockFactory(DockSerializer serializer, ILogger<DockFactory>? logger = null)
     {
-        _mainViewModel = mainViewModel;
         _serializer = serializer;
         _logger = logger;
     }
@@ -55,23 +57,24 @@ public sealed class DockFactory : Factory
     /// Creates and configures the root dock layout for the application, including editor, preview, and AI assistant
     /// panels arranged horizontally.
     /// </summary>
-    /// <remarks>The returned layout includes three tool docks—Editor, Preview, and AI Assistant—organized in
-    /// a horizontal split. Each tool dock is initialized with its respective context to support data binding in user
-    /// controls. The layout is suitable for use as the application's primary docking structure.</remarks>
+    /// <remarks>
+    /// The returned layout includes three tool docks—Editor, Preview, and AI Assistant—organized in
+    /// a horizontal split. Contexts are set via ContextLocator in InitLayout, following the recommended
+    /// pattern from the Dock library documentation.
+    /// </remarks>
     /// <returns>An <see cref="IRootDock"/> instance representing the main layout with editor, preview, and AI assistant tool
     /// docks.</returns>
     public override IRootDock CreateLayout()
     {
         // Create tool docks for each panel
-        // Context is set to MainViewModel so DataContext binding works in UserControls
+        // Note: Contexts will be assigned via ContextLocator in InitLayout()
         Tool editorTool = new Tool
         {
             Id = "Editor",
             Title = "Editor",
             CanClose = false,
             CanFloat = true,
-            CanPin = true,
-            Context = _mainViewModel
+            CanPin = true
         };
 
         Tool previewTool = new Tool
@@ -80,8 +83,7 @@ public sealed class DockFactory : Factory
             Title = "Preview",
             CanClose = false,
             CanFloat = true,
-            CanPin = true,
-            Context = _mainViewModel
+            CanPin = true
         };
 
         Tool aiTool = new Tool
@@ -90,8 +92,7 @@ public sealed class DockFactory : Factory
             Title = "AI Assistant",
             CanClose = false,
             CanFloat = true,
-            CanPin = true,
-            Context = _mainViewModel.AIPanelViewModel
+            CanPin = true
         };
 
         // Create proportional dock splitter for horizontal layout (Editor | Preview | AI)
@@ -155,16 +156,22 @@ public sealed class DockFactory : Factory
     }
 
     /// <summary>
-    /// Initializes the docking layout.
+    /// Initializes the docking layout with ViewModel context mappings.
     /// </summary>
     /// <param name="layout">The root dock layout to initialize.</param>
-    public override void InitLayout(IDockable layout)
+    /// <param name="viewModel">The main view model containing panel view models for context binding.</param>
+    /// <remarks>
+    /// This follows the ContextLocator pattern from the Dock library documentation.
+    /// ViewModel references are captured by closures in the ContextLocator dictionary,
+    /// avoiding the need to store ViewModels as fields in the factory.
+    /// </remarks>
+    public void InitLayout(IDockable layout, MainViewModel viewModel)
     {
         ContextLocator = new Dictionary<string, Func<object?>>
         {
-            ["Editor"] = () => _mainViewModel,
-            ["Preview"] = () => _mainViewModel,
-            ["AIAssistant"] = () => _mainViewModel.AIPanelViewModel
+            ["Editor"] = () => viewModel,
+            ["Preview"] = () => viewModel,
+            ["AIAssistant"] = () => viewModel.AIPanelViewModel
         };
 
         HostWindowLocator = new Dictionary<string, Func<IHostWindow?>>
@@ -199,8 +206,13 @@ public sealed class DockFactory : Factory
     /// Deserializes a dock layout from a JSON string and restores contexts.
     /// </summary>
     /// <param name="json">The JSON string representing the dock layout.</param>
+    /// <param name="viewModel">The main view model containing panel view models for context restoration.</param>
     /// <returns>The deserialized root dock, or null if deserialization fails.</returns>
-    public IDock? DeserializeLayout(string json)
+    /// <remarks>
+    /// After deserialization, this method restores ViewModel contexts for all tools based on their ID.
+    /// This is necessary because contexts (ViewModel references) are not serialized.
+    /// </remarks>
+    public IDock? DeserializeLayout(string json, MainViewModel viewModel)
     {
         try
         {
@@ -209,7 +221,7 @@ public sealed class DockFactory : Factory
             if (layout is not null)
             {
                 // Restore contexts for all tools after deserialization
-                RestoreContexts(layout);
+                RestoreContexts(layout, viewModel);
                 _logger?.LogInformation("Dock layout deserialized successfully");
             }
 
@@ -226,16 +238,17 @@ public sealed class DockFactory : Factory
     /// Recursively restores the context for all dockable items in the layout.
     /// </summary>
     /// <param name="dockable">The dockable item to process.</param>
-    private void RestoreContexts(IDockable dockable)
+    /// <param name="viewModel">The main view model containing panel view models.</param>
+    private void RestoreContexts(IDockable dockable, MainViewModel viewModel)
     {
         // Restore context for Tool items based on their ID
         if (dockable is Tool tool && tool.Id is not null)
         {
             tool.Context = tool.Id switch
             {
-                "Editor" => _mainViewModel,
-                "Preview" => _mainViewModel,
-                "AIAssistant" => _mainViewModel.AIPanelViewModel,
+                "Editor" => viewModel,
+                "Preview" => viewModel,
+                "AIAssistant" => viewModel.AIPanelViewModel,
                 _ => tool.Context
             };
         }
@@ -247,7 +260,7 @@ public sealed class DockFactory : Factory
             {
                 if (child is not null)
                 {
-                    RestoreContexts(child);
+                    RestoreContexts(child, viewModel);
                 }
             }
         }

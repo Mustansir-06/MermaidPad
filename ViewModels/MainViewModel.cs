@@ -234,25 +234,26 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel.DiagramGenerated += OnDiagramGenerated;
 
         // Initialize docking layout
+        // Factory follows ContextLocator pattern - ViewModels are passed to methods, not stored
         DockSerializer dockSerializer = services.GetRequiredService<DockSerializer>();
         ILogger<DockFactory>? dockLogger = services.GetService<ILogger<DockFactory>>();
-        _dockFactory = new DockFactory(this, dockSerializer, dockLogger);
+        _dockFactory = new DockFactory(dockSerializer, dockLogger);
 
         // Try to load saved layout from UI settings, or create default if none exists
         if (!string.IsNullOrWhiteSpace(_uiSettingsService.Settings.DockLayout))
         {
-            Dock.Model.Core.IDock? deserializedLayout = _dockFactory.DeserializeLayout(_uiSettingsService.Settings.DockLayout);
+            Dock.Model.Core.IDock? deserializedLayout = _dockFactory.DeserializeLayout(_uiSettingsService.Settings.DockLayout, this);
             if (deserializedLayout is not null)
             {
                 Layout = deserializedLayout;
-                _dockFactory.InitLayout(Layout);
+                _dockFactory.InitLayout(Layout, this);
                 _logger.LogInformation("Loaded saved dock layout from UI settings");
             }
             else
             {
                 // Deserialization failed, create default layout
                 Layout = _dockFactory.CreateLayout();
-                _dockFactory.InitLayout(Layout);
+                _dockFactory.InitLayout(Layout, this);
                 _logger.LogWarning("Failed to load saved dock layout, using default");
             }
         }
@@ -260,7 +261,7 @@ public sealed partial class MainViewModel : ViewModelBase
         {
             // No saved layout, create default
             Layout = _dockFactory.CreateLayout();
-            _dockFactory.InitLayout(Layout);
+            _dockFactory.InitLayout(Layout, this);
             _logger.LogInformation("No saved dock layout found in UI settings, using default");
         }
 
