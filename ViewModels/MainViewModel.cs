@@ -202,8 +202,12 @@ public sealed partial class MainViewModel : ViewModelBase
     /// Initializes a new instance of the <see cref="MainViewModel"/> class.
     /// </summary>
     /// <param name="services">The service provider for dependency injection.</param>
+    /// <param name="factory">The dock factory for creating and managing dock layouts.</param>
     /// <param name="logger">The logger instance for this view model.</param>
-    public MainViewModel(IServiceProvider services, ILogger<MainViewModel> logger)
+    public MainViewModel(
+        IServiceProvider services,
+        IFactory factory,
+        ILogger<MainViewModel> logger)
     {
         _renderer = services.GetRequiredService<MermaidRenderer>();
         _settingsService = services.GetRequiredService<SettingsService>();
@@ -215,6 +219,9 @@ public sealed partial class MainViewModel : ViewModelBase
         _fileService = services.GetRequiredService<IFileService>();
         _logger = logger;
         _aiServiceFactory = services.GetRequiredService<AIServiceFactory>();
+
+        // Store DockFactory (cast from IFactory)
+        _dockFactory = (DockFactory)factory;
 
         InitializeCurrentMermaidPadVersion();
 
@@ -234,11 +241,7 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel.DiagramGenerated += OnDiagramGenerated;
 
         // Initialize docking layout
-        // Factory follows ContextLocator pattern - ViewModels are passed to methods, not stored
-        DockSerializer dockSerializer = services.GetRequiredService<DockSerializer>();
-        ILogger<DockFactory>? dockLogger = services.GetService<ILogger<DockFactory>>();
-        _dockFactory = new DockFactory(dockSerializer, dockLogger);
-
+        // Factory follows ContextLocator pattern - ViewModels are passed to InitLayout, not stored
         // Try to load saved layout from UI settings, or create default if none exists
         if (!string.IsNullOrWhiteSpace(_uiSettingsService.Settings.DockLayout))
         {

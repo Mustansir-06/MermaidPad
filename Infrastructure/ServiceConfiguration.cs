@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using Dock.Model.Core;
+using Dock.Model.Mvvm.Controls;
 using MermaidPad.Services;
 using MermaidPad.Services.AI;
 using MermaidPad.Services.Export;
@@ -112,15 +114,15 @@ public static class ServiceConfiguration
         services.AddSingleton<IDialogFactory, DialogFactory>();
         services.AddSingleton<IFileService, FileService>();
 
-        // Dock serialization
-        services.AddSingleton(static _ => new DockSerializer(typeof(ObservableCollection<>)));
+        // Dock serialization - registers Factory, Serializer, and DockState as singletons
+        services.AddDock<DockFactory, DockSerializer>();
 
         // AI Services
         services.AddSingleton<ISecureStorageService, SecureStorageService>();
         services.AddSingleton<AIServiceFactory>();
 
-        // Main ViewModel: transient (one per window)
-        services.AddTransient<MainViewModel>();
+        // Main ViewModel: singleton for single-window desktop app
+        services.AddSingleton<MainViewModel>();
 
         // Dialog ViewModels: transient (one per dialog instance)
         services.AddTransient<ExportDialogViewModel>();
