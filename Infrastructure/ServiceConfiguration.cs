@@ -67,6 +67,7 @@ public static class ServiceConfiguration
         // Core singletons
         services.AddSingleton<IPlatformServices>(static _ => PlatformServiceFactory.Instance);
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<UiSettingsService>();
         services.AddSingleton<SecurityService>();
         services.AddSingleton<AssetIntegrityService>();
 

@@ -108,14 +108,6 @@ public sealed class AppSettings
     /// Gets or sets the configuration settings for AI-related features.
     /// </summary>
     public AISettings AI { get; set; } = new AISettings();
-
-    /// <summary>
-    /// Gets or sets the serialized dock layout state.
-    /// </summary>
-    /// <value>
-    /// A JSON string representing the dock layout, or null if no layout has been saved.
-    /// </value>
-    public string? DockLayout { get; set; }
 }
 
 /// <summary>

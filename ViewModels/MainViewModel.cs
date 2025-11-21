@@ -52,6 +52,7 @@ public sealed partial class MainViewModel : ViewModelBase
 {
     private readonly MermaidRenderer _renderer;
     private readonly SettingsService _settingsService;
+    private readonly UiSettingsService _uiSettingsService;
     private readonly MermaidUpdateService _updateService;
     private readonly IDebounceDispatcher _editorDebouncer;
     private readonly ExportService _exportService;
@@ -205,6 +206,7 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         _renderer = services.GetRequiredService<MermaidRenderer>();
         _settingsService = services.GetRequiredService<SettingsService>();
+        _uiSettingsService = services.GetRequiredService<UiSettingsService>();
         _updateService = services.GetRequiredService<MermaidUpdateService>();
         _editorDebouncer = services.GetRequiredService<IDebounceDispatcher>();
         _exportService = services.GetRequiredService<ExportService>();
@@ -234,15 +236,15 @@ public sealed partial class MainViewModel : ViewModelBase
         ILogger<DockFactory>? dockLogger = services.GetService<ILogger<DockFactory>>();
         _dockFactory = new DockFactory(this, dockLogger);
 
-        // Try to load saved layout, or create default if none exists
-        if (!string.IsNullOrWhiteSpace(_settingsService.Settings.DockLayout))
+        // Try to load saved layout from UI settings, or create default if none exists
+        if (!string.IsNullOrWhiteSpace(_uiSettingsService.Settings.DockLayout))
         {
-            Dock.Model.Core.IDock? deserializedLayout = _dockFactory.DeserializeLayout(_settingsService.Settings.DockLayout);
+            Dock.Model.Core.IDock? deserializedLayout = _dockFactory.DeserializeLayout(_uiSettingsService.Settings.DockLayout);
             if (deserializedLayout is not null)
             {
                 Layout = deserializedLayout;
                 _dockFactory.InitLayout(Layout);
-                _logger.LogInformation("Loaded saved dock layout");
+                _logger.LogInformation("Loaded saved dock layout from UI settings");
             }
             else
             {
@@ -257,7 +259,7 @@ public sealed partial class MainViewModel : ViewModelBase
             // No saved layout, create default
             Layout = _dockFactory.CreateLayout();
             _dockFactory.InitLayout(Layout);
-            _logger.LogInformation("No saved dock layout found, using default");
+            _logger.LogInformation("No saved dock layout found in UI settings, using default");
         }
 
         UpdateRecentFiles();
@@ -1269,11 +1271,13 @@ public sealed partial class MainViewModel : ViewModelBase
     /// Persists the current application settings to storage.
     /// </summary>
     /// <remarks>This method updates the settings service with the current state of the application,
-    /// including diagram text, live preview settings, Mermaid version information, editor selection details, and dock layout. After
-    /// updating the settings, the method saves them to ensure they are persisted across application
+    /// including diagram text, live preview settings, Mermaid version information, and editor selection details.
+    /// It also persists UI-specific settings like dock layout to a separate UI settings file.
+    /// After updating the settings, both settings files are saved to ensure they are persisted across application
     /// sessions.</remarks>
     public void Persist()
     {
+        // Save application settings
         _settingsService.Settings.LastDiagramText = DiagramText;
         _settingsService.Settings.LivePreviewEnabled = LivePreviewEnabled;
         _settingsService.Settings.BundledMermaidVersion = BundledMermaidVersion;
@@ -1282,23 +1286,23 @@ public sealed partial class MainViewModel : ViewModelBase
         _settingsService.Settings.EditorSelectionLength = EditorSelectionLength;
         _settingsService.Settings.EditorCaretOffset = EditorCaretOffset;
         _settingsService.Settings.CurrentFilePath = CurrentFilePath;
+        _settingsService.Save();
 
-        // Serialize and save dock layout
+        // Save UI settings (dock layout)
         if (Layout is not null)
         {
             string? serializedLayout = _dockFactory.SerializeLayout(Layout);
             if (serializedLayout is not null)
             {
-                _settingsService.Settings.DockLayout = serializedLayout;
-                _logger.LogInformation("Dock layout saved to settings");
+                _uiSettingsService.Settings.DockLayout = serializedLayout;
+                _logger.LogInformation("Dock layout saved to UI settings");
             }
             else
             {
                 _logger.LogWarning("Failed to serialize dock layout");
             }
         }
-
-        _settingsService.Save();
+        _uiSettingsService.Save();
     }
 
     /// <summary>
