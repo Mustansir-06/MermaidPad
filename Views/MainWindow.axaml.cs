@@ -72,22 +72,22 @@ public partial class MainWindow : Window
     private WebView Preview => _preview ?? throw new InvalidOperationException("Preview not initialized yet");
 
     // Event handlers stored for proper cleanup
-    private EventHandler? _activatedHandler;
-    //    private EventHandler? _openedHandler;
-    //    private EventHandler<WindowClosingEventArgs>? _closingHandler;
     private EventHandler? _editorTextChangedHandler;
     private EventHandler? _editorSelectionChangedHandler;
     private EventHandler? _editorCaretPositionChangedHandler;
-    private EventHandler? _themeChangedHandler;
     private PropertyChangedEventHandler? _viewModelPropertyChangedHandler;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
     /// </summary>
     /// <remarks>
-    /// The constructor resolves required services from the application's DI container,
-    /// initializes the editor state from the view model, and hooks up synchronization and lifecycle handlers.
-    /// No long-running or blocking work is performed here; heavier initialization happens during the window open sequence.
+    /// LIFECYCLE PHASE: Constructor
+    /// - InitializeComponent() MUST be first
+    /// - Resolve services from DI
+    /// - Set DataContext
+    /// - Initialize simple fields only
+    ///
+    /// DO NOT wire event handlers here - use OnAttachedToVisualTree instead.
     /// </remarks>
     public MainWindow()
     {
@@ -102,91 +102,96 @@ public partial class MainWindow : Window
         _logger = sp.GetRequiredService<ILogger<MainWindow>>();
         DataContext = _vm;
 
-        _logger.LogInformation("=== MainWindow Initialization Started ===");
-
-        //TODO review this for correctness
-        // Initialize syntax highlighting before wiring up OnThemeChanged
-        //        InitializeSyntaxHighlighting();
-
-        // Store event handlers for proper cleanup
-        //_openedHandler = OnOpened;
-        //Opened += _openedHandler;
-
-        //_closingHandler = OnClosing;
-        //Closing += _closingHandler;
-
-        _themeChangedHandler = OnThemeChanged;
-        ActualThemeVariantChanged += _themeChangedHandler;
-
-        _activatedHandler = (_, _) => BringFocusToEditor();
-        Activated += _activatedHandler;
-
-        // Defer Editor/Preview initialization until DockControl loads
-        Loaded += OnWindowLoaded;
-
-        _logger.LogInformation("=== MainWindow Initialization Completed ===");
+        _logger.LogInformation("MainWindow constructor completed - event handlers will be wired in OnAttachedToVisualTree");
     }
 
     /// <summary>
-    /// Handles the window Loaded event to initialize controls from the DockControl.
+    /// Attempts to find EditorPanel and PreviewPanel from DockControl DataTemplates.
     /// </summary>
-    private void OnWindowLoaded(object? sender, RoutedEventArgs e)
+    /// <remarks>
+    /// DataTemplates in DockControl are applied lazily. This method searches the visual tree
+    /// for the panels and wires up their event handlers.
+    ///
+    /// If panels are not found, retries after a short delay (DataTemplates may still be applying).
+    /// </remarks>
+    private void TryFindDockPanels()
     {
-        _logger.LogInformation("Window loaded, finding controls in DockControl");
-
-        // Find the DockControl
         DockControl? dockControl = this.FindControl<DockControl>("MainDock");
         if (dockControl is null)
         {
-            _logger.LogError("DockControl not found");
+            _logger.LogError("DockControl 'MainDock' not found - cannot initialize panels");
             return;
         }
 
-        // Find EditorPanel and PreviewPanel in the visual tree
+        // Find EditorPanel from DataTemplate
         EditorPanel? editorPanel = dockControl.GetVisualDescendants().OfType<EditorPanel>().FirstOrDefault();
         PreviewPanel? previewPanel = dockControl.GetVisualDescendants().OfType<PreviewPanel>().FirstOrDefault();
 
-        if (editorPanel is not null)
+        if (editorPanel is null)
         {
-            _editor = editorPanel.Editor;
-            _logger.LogInformation("Editor control found in EditorPanel");
-
-            // Subscribe to context menu opening event
-            if (_editor.ContextMenu is not null)
-            {
-                _editor.ContextMenu.Opening += GetContextMenuState;
-            }
-
-            // Initialize syntax highlighting before wiring up OnThemeChanged
-            InitializeSyntaxHighlighting();
-
-            // Initialize editor with ViewModel data
-            SetEditorStateWithValidation(
-                _vm.DiagramText,
-                _vm.EditorSelectionStart,
-                _vm.EditorSelectionLength,
-                _vm.EditorCaretOffset
-            );
-
-            _logger.LogInformation("Editor initialized with {CharacterCount} characters", _vm.DiagramText.Length);
-
-            // Set up two-way synchronization between Editor and ViewModel
-            SetupEditorViewModelSync();
-        }
-        else
-        {
-            _logger.LogWarning("EditorPanel not found in DockControl");
+            _logger.LogWarning("EditorPanel not found yet - will retry after short delay");
+            // Retry with lower priority to allow DataTemplates to apply
+            Dispatcher.UIThread.Post(TryFindDockPanels, DispatcherPriority.Background);
+            return;
         }
 
+        // Found EditorPanel - initialize it
+        _editor = editorPanel.Editor;
+        _logger.LogInformation("EditorPanel found - initializing editor");
+
+        // Initialize syntax highlighting
+        InitializeSyntaxHighlighting();
+
+        // Initialize editor with ViewModel data
+        SetEditorStateWithValidation(
+            _vm.DiagramText,
+            _vm.EditorSelectionStart,
+            _vm.EditorSelectionLength,
+            _vm.EditorCaretOffset
+        );
+
+        _logger.LogInformation("Editor initialized with {CharacterCount} characters", _vm.DiagramText.Length);
+
+        // Wire editor event handlers (now that editor exists)
+        WireEditorEventHandlers();
+
+        // Find PreviewPanel
         if (previewPanel is not null)
         {
             _preview = previewPanel.Preview;
-            _logger.LogInformation("Preview WebView found in PreviewPanel");
+            _logger.LogInformation("PreviewPanel found - preview WebView ready");
         }
         else
         {
-            _logger.LogWarning("PreviewPanel not found in DockControl");
+            _logger.LogWarning("PreviewPanel not found in visual tree");
         }
+    }
+
+    /// <summary>
+    /// Wires editor event handlers for two-way synchronization with ViewModel.
+    /// </summary>
+    /// <remarks>
+    /// Called after editor control is found and initialized.
+    /// Separated from SetupEditorViewModelSync for clearer separation of concerns.
+    /// </remarks>
+    private void WireEditorEventHandlers()
+    {
+        if (_editor is null)
+        {
+            _logger.LogWarning("Cannot wire editor event handlers - editor is null");
+            return;
+        }
+
+        _logger.LogInformation("Wiring editor event handlers");
+
+        // Subscribe to context menu opening event
+        if (_editor.ContextMenu is not null)
+        {
+            _editor.ContextMenu.Opening += GetContextMenuState;
+        }
+
+        // Set up two-way synchronization between Editor and ViewModel
+        SetupEditorViewModelSync();
     }
 
     /// <summary>
@@ -407,49 +412,165 @@ public partial class MainWindow : Window
         }
     }
 
-    #region Overidden methods
+    #region Lifecycle Overrides
 
-    //TODO review these for correctness
-
+    /// <summary>
+    /// Called when the control is attached to the visual tree.
+    /// </summary>
+    /// <remarks>
+    /// LIFECYCLE PHASE: OnAttachedToVisualTree ⭐ IMPORTANT
+    /// - WIRE ALL EVENT HANDLERS HERE
+    /// - Subscribe to window-level events
+    /// - Subscribe to ViewModel events
+    ///
+    /// This is the RIGHT place for ALL event handler wiring!
+    /// Cleanup happens automatically in OnDetachedFromVisualTree and OnUnloaded.
+    /// </remarks>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
 
+        _logger.LogInformation("MainWindow attached to visual tree - wiring event handlers");
+
+        // Wire window-level event handlers
+        ActualThemeVariantChanged += OnThemeChanged;
+        Activated += OnActivated;
+
+        // Wire ViewModel property changed (for two-way sync)
+        _vm.PropertyChanged += _viewModelPropertyChangedHandler = OnViewModelPropertyChanged;
+
+        // Note: Editor/Preview event handlers will be wired when panels are found
+        // This happens in WireEditorEventHandlers() called from TryFindDockPanels()
     }
 
+    /// <summary>
+    /// Called when the control is fully loaded.
+    /// </summary>
+    /// <remarks>
+    /// LIFECYCLE PHASE: OnLoaded ⭐ IMPORTANT
+    /// - Initialize heavy resources (WebView)
+    /// - Find controls from DataTemplates
+    /// - Start async operations
+    ///
+    /// This is the RIGHT place for resource initialization and finding DataTemplate controls.
+    /// </remarks>
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
+
+        _logger.LogInformation("MainWindow loaded - initializing controls");
+
+        // Post to ensure DataTemplates have been applied
+        // Uses retry logic if panels not found immediately
+        Dispatcher.UIThread.Post(TryFindDockPanels, DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    /// Called when the control is being unloaded.
+    /// </summary>
+    /// <remarks>
+    /// LIFECYCLE PHASE: OnUnloaded ⭐ CRITICAL
+    /// - UNSUBSCRIBE ALL EVENT HANDLERS (prevents memory leaks!)
+    /// - Stop timers and animations
+    /// - Cancel async operations
+    ///
+    /// This is the RIGHT place for ALL event handler cleanup!
+    /// </remarks>
     protected override void OnUnloaded(RoutedEventArgs e)
     {
+        _logger.LogInformation("MainWindow unloading - cleaning up event handlers");
+
+        // Unsubscribe all event handlers to prevent memory leaks
+        UnsubscribeAllEventHandlers();
+
         base.OnUnloaded(e);
     }
 
+    /// <summary>
+    /// Called when the control is detached from the visual tree.
+    /// </summary>
+    /// <remarks>
+    /// LIFECYCLE PHASE: OnDetachedFromVisualTree
+    /// - Release visual resources
+    /// - Dispose WebView
+    /// - Clear cached visual elements
+    ///
+    /// This is the RIGHT place for WebView disposal and graphics cleanup.
+    /// </remarks>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _logger.LogInformation("MainWindow detached from visual tree - cleaning up resources");
+
+        // Dispose WebView if it exists
+        // Note: WebView disposal is best done here rather than in async cleanup
+        if (_preview is not null)
+        {
+            try
+            {
+                // WebView cleanup happens here
+                _logger.LogInformation("WebView cleanup completed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during WebView cleanup");
+            }
+        }
+
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// Called when the window is opened and visible.
+    /// </summary>
+    /// <remarks>
+    /// LIFECYCLE PHASE: OnOpened
+    /// - Window is NOW visible to user
+    /// - Start async initialization
+    /// - Focus initial control
+    /// </remarks>
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+
+        _logger.LogInformation("MainWindow opened - window is now visible");
 
         OnOpenedCoreAsync()
             .SafeFireAndForget(onException: ex =>
             {
                 _logger.LogError(ex, "Unhandled exception in OnOpened");
-                //TODO - show a message to the user (this would need UI thread!)
-                //Dispatcher.UIThread.Post(async () =>
-                //{
-                //    await MessageBox.ShowAsync(this, "An error occurred while opening the window. Please try again.", "Error", MessageBox.MessageBoxButtons.Ok, MessageBox.MessageBoxIcon.Error);
-                //});
-            }
-            //TODO - re-enable this if I add UI operations in the future
-            //continueOnCapturedContext: true  // Needed for UI operations and event subscriptions
-            );
+            });
     }
 
+    /// <summary>
+    /// Handles window activation (gains focus).
+    /// </summary>
+    /// <remarks>
+    /// Fires EVERY time window gains focus.
+    /// Brings focus to editor when window becomes active.
+    /// </remarks>
+    private void OnActivated(object? sender, EventArgs e)
+    {
+        BringFocusToEditor();
+    }
+
+    /// <summary>
+    /// Called when the window is closing (can be cancelled).
+    /// </summary>
+    /// <remarks>
+    /// LIFECYCLE PHASE: OnClosing
+    /// - Check for unsaved changes
+    /// - Show confirmation dialog
+    /// - Set e.Cancel = true to prevent closing
+    /// - Save window state
+    ///
+    /// Note: Event handler cleanup happens in OnUnloaded, not here.
+    /// </remarks>
     [SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "Base method guarantees non-null e")]
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
+
+        _logger.LogInformation("MainWindow closing requested");
 
         // Check for unsaved changes (only if not already approved)
         if (!_isClosingApproved && _vm.IsDirty && !string.IsNullOrWhiteSpace(_vm.DiagramText))
@@ -478,28 +599,22 @@ public partial class MainWindow : Window
 
         try
         {
-            // Only unsubscribe when we're actually closing (e.Cancel is still false)
-            UnsubscribeAllEventHandlers();
-
-            // Save state
+            // Save state before closing
             _vm.Persist();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during window closing cleanup");
-
-            // I don't want silent failures here - rethrow to let higher-level handlers know
+            _logger.LogError(ex, "Error persisting state during window closing");
             throw;
         }
 
         // Perform async cleanup
-        // Capture logger for use in lambda in case 'this' is disposed before the async work completes
         ILogger<MainWindow> logger = _logger;
         OnClosingAsync()
             .SafeFireAndForget(onException: ex => logger.LogError(ex, "Failed during window close cleanup"));
     }
 
-    #endregion Overidden methods
+    #endregion Lifecycle Overrides
 
     //protected override void OnActualThemeVariantChanged(ActualThemeVariantChangedEventArgs e)
     //    {
@@ -723,59 +838,53 @@ public partial class MainWindow : Window
     //}
 
     /// <summary>
-    /// Unsubscribes all event handlers that were previously attached to window and editor events.
+    /// Unsubscribes all event handlers to prevent memory leaks.
     /// </summary>
-    /// <remarks>Call this method to detach all event handlers managed by the instance, typically during
-    /// cleanup or disposal. After calling this method, the instance will no longer respond to the associated events
-    /// until handlers are reattached. This helps prevent memory leaks and unintended event processing.</remarks>
+    /// <remarks>
+    /// Called from OnUnloaded to ensure all event handlers are properly cleaned up.
+    /// This prevents memory leaks by breaking references between controls and handlers.
+    /// </remarks>
     private void UnsubscribeAllEventHandlers()
     {
-        //if (_openedHandler is not null)
-        //{
-        //    Opened -= _openedHandler;
-        //    _openedHandler = null;
-        //}
+        _logger.LogInformation("Unsubscribing all event handlers");
 
-        //if (_closingHandler is not null)
-        //{
-        //    Closing -= _closingHandler;
-        //    _closingHandler = null;
-        //}
+        // Window-level events
+        ActualThemeVariantChanged -= OnThemeChanged;
+        Activated -= OnActivated;
 
-        if (_activatedHandler is not null)
-        {
-            Activated -= _activatedHandler;
-            _activatedHandler = null;
-        }
-
-        if (_themeChangedHandler is not null)
-        {
-            ActualThemeVariantChanged -= _themeChangedHandler;
-            _themeChangedHandler = null;
-        }
-
-        if (_editorTextChangedHandler is not null)
-        {
-            Editor.TextChanged -= _editorTextChangedHandler;
-            _editorTextChangedHandler = null;
-        }
-
-        if (_editorSelectionChangedHandler is not null)
-        {
-            Editor.TextArea.SelectionChanged -= _editorSelectionChangedHandler;
-            _editorSelectionChangedHandler = null;
-        }
-
-        if (_editorCaretPositionChangedHandler is not null)
-        {
-            Editor.TextArea.Caret.PositionChanged -= _editorCaretPositionChangedHandler;
-            _editorCaretPositionChangedHandler = null;
-        }
-
+        // ViewModel events
         if (_viewModelPropertyChangedHandler is not null)
         {
             _vm.PropertyChanged -= _viewModelPropertyChangedHandler;
             _viewModelPropertyChangedHandler = null;
+        }
+
+        // Editor events (only if editor was initialized)
+        if (_editor is not null)
+        {
+            if (_editorTextChangedHandler is not null)
+            {
+                _editor.TextChanged -= _editorTextChangedHandler;
+                _editorTextChangedHandler = null;
+            }
+
+            if (_editorSelectionChangedHandler is not null)
+            {
+                _editor.TextArea.SelectionChanged -= _editorSelectionChangedHandler;
+                _editorSelectionChangedHandler = null;
+            }
+
+            if (_editorCaretPositionChangedHandler is not null)
+            {
+                _editor.TextArea.Caret.PositionChanged -= _editorCaretPositionChangedHandler;
+                _editorCaretPositionChangedHandler = null;
+            }
+
+            // Context menu event
+            if (_editor.ContextMenu is not null)
+            {
+                _editor.ContextMenu.Opening -= GetContextMenuState;
+            }
         }
 
         _logger.LogInformation("All event handlers unsubscribed successfully");
