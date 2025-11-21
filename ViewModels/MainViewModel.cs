@@ -202,11 +202,9 @@ public sealed partial class MainViewModel : ViewModelBase
     /// Initializes a new instance of the <see cref="MainViewModel"/> class.
     /// </summary>
     /// <param name="services">The service provider for dependency injection.</param>
-    /// <param name="factory">The dock factory for creating and managing dock layouts.</param>
     /// <param name="logger">The logger instance for this view model.</param>
     public MainViewModel(
         IServiceProvider services,
-        IFactory factory,
         ILogger<MainViewModel> logger)
     {
         _renderer = services.GetRequiredService<MermaidRenderer>();
@@ -220,8 +218,8 @@ public sealed partial class MainViewModel : ViewModelBase
         _logger = logger;
         _aiServiceFactory = services.GetRequiredService<AIServiceFactory>();
 
-        // Store DockFactory (cast from IFactory)
-        _dockFactory = (DockFactory)factory;
+        // Get DockFactory from DI (registered via AddDock)
+        _dockFactory = (DockFactory)services.GetRequiredService<IFactory>();
 
         InitializeCurrentMermaidPadVersion();
 
@@ -241,22 +239,22 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel.DiagramGenerated += OnDiagramGenerated;
 
         // Initialize docking layout
-        // Factory follows ContextLocator pattern - ViewModels are passed to InitLayout, not stored
+        // Factory resolves MainViewModel lazily from DI to access panel ViewModels
         // Try to load saved layout from UI settings, or create default if none exists
         if (!string.IsNullOrWhiteSpace(_uiSettingsService.Settings.DockLayout))
         {
-            Dock.Model.Core.IDock? deserializedLayout = _dockFactory.DeserializeLayout(_uiSettingsService.Settings.DockLayout, this);
+            Dock.Model.Core.IDock? deserializedLayout = _dockFactory.DeserializeLayout(_uiSettingsService.Settings.DockLayout);
             if (deserializedLayout is not null)
             {
                 Layout = deserializedLayout;
-                _dockFactory.InitLayout(Layout, this);
+                _dockFactory.InitLayout(Layout);
                 _logger.LogInformation("Loaded saved dock layout from UI settings");
             }
             else
             {
                 // Deserialization failed, create default layout
                 Layout = _dockFactory.CreateLayout();
-                _dockFactory.InitLayout(Layout, this);
+                _dockFactory.InitLayout(Layout);
                 _logger.LogWarning("Failed to load saved dock layout, using default");
             }
         }
@@ -264,7 +262,7 @@ public sealed partial class MainViewModel : ViewModelBase
         {
             // No saved layout, create default
             Layout = _dockFactory.CreateLayout();
-            _dockFactory.InitLayout(Layout, this);
+            _dockFactory.InitLayout(Layout);
             _logger.LogInformation("No saved dock layout found in UI settings, using default");
         }
 
