@@ -9,7 +9,7 @@
   xmlns:vm="clr-namespace:MermaidPad.ViewModels"
   d:DesignHeight="600"
   d:DesignWidth="400"
-  x:DataType="vm:MainViewModel"
+  x:DataType="vm:EditorViewModel"
   mc:Ignorable="d">
 
   <DockPanel>

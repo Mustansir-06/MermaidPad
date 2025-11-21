@@ -121,6 +121,10 @@ public static class ServiceConfiguration
         services.AddSingleton<ISecureStorageService, SecureStorageService>();
         services.AddSingleton<AIServiceFactory>();
 
+        // Panel ViewModels: singleton for single-window desktop app
+        services.AddSingleton<EditorViewModel>();
+        services.AddSingleton<PreviewViewModel>();
+
         // Main ViewModel: singleton for single-window desktop app
         services.AddSingleton<MainViewModel>();
 

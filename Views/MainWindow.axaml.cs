@@ -144,13 +144,13 @@ public partial class MainWindow : Window
 
         // Initialize editor with ViewModel data
         SetEditorStateWithValidation(
-            _vm.DiagramText,
-            _vm.EditorSelectionStart,
-            _vm.EditorSelectionLength,
-            _vm.EditorCaretOffset
+            _vm.EditorViewModel.DiagramText,
+            _vm.EditorViewModel.EditorSelectionStart,
+            _vm.EditorViewModel.EditorSelectionLength,
+            _vm.EditorViewModel.EditorCaretOffset
         );
 
-        _logger.LogInformation("Editor initialized with {CharacterCount} characters", _vm.DiagramText.Length);
+        _logger.LogInformation("Editor initialized with {CharacterCount} characters", _vm.EditorViewModel.DiagramText.Length);
 
         // Wire editor event handlers (now that editor exists)
         WireEditorEventHandlers();
@@ -251,12 +251,12 @@ public partial class MainWindow : Window
             // Debounce to avoid excessive updates
             _editorDebouncer.DebounceOnUI("editor-text", TimeSpan.FromMilliseconds(DebounceDispatcher.DefaultTextDebounceMilliseconds), () =>
             {
-                if (_vm.DiagramText != Editor.Text)
+                if (_vm.EditorViewModel.DiagramText != Editor.Text)
                 {
                     _suppressEditorStateSync = true;
                     try
                     {
-                        _vm.DiagramText = Editor.Text;
+                        _vm.EditorViewModel.DiagramText = Editor.Text;
                     }
                     finally
                     {
@@ -316,9 +316,9 @@ public partial class MainWindow : Window
         int selectionLength = Editor.SelectionLength;
         int caretOffset = Editor.CaretOffset;
 
-        if (selectionStart == _vm.EditorSelectionStart &&
-            selectionLength == _vm.EditorSelectionLength &&
-            caretOffset == _vm.EditorCaretOffset)
+        if (selectionStart == _vm.EditorViewModel.EditorSelectionStart &&
+            selectionLength == _vm.EditorViewModel.EditorSelectionLength &&
+            caretOffset == _vm.EditorViewModel.EditorCaretOffset)
         {
             return; // nothing changed
         }
@@ -329,9 +329,9 @@ public partial class MainWindow : Window
             try
             {
                 // Take the latest values at execution time to coalesce multiple events
-                _vm.EditorSelectionStart = Editor.SelectionStart;
-                _vm.EditorSelectionLength = Editor.SelectionLength;
-                _vm.EditorCaretOffset = Editor.CaretOffset;
+                _vm.EditorViewModel.EditorSelectionStart = Editor.SelectionStart;
+                _vm.EditorViewModel.EditorSelectionLength = Editor.SelectionLength;
+                _vm.EditorViewModel.EditorCaretOffset = Editor.CaretOffset;
             }
             finally
             {
@@ -356,8 +356,8 @@ public partial class MainWindow : Window
 
         switch (e.PropertyName)
         {
-            case nameof(_vm.DiagramText):
-                if (Editor.Text != _vm.DiagramText)
+            case nameof(EditorViewModel.DiagramText):
+                if (Editor.Text != _vm.EditorViewModel.DiagramText)
                 {
                     _editorDebouncer.DebounceOnUI("vm-text", TimeSpan.FromMilliseconds(DebounceDispatcher.DefaultTextDebounceMilliseconds), () =>
                     {
@@ -365,7 +365,7 @@ public partial class MainWindow : Window
                         _suppressEditorStateSync = true;
                         try
                         {
-                            Editor.Text = _vm.DiagramText;
+                            Editor.Text = _vm.EditorViewModel.DiagramText;
                         }
                         finally
                         {
@@ -377,11 +377,11 @@ public partial class MainWindow : Window
                 }
                 break;
 
-            case nameof(_vm.EditorSelectionStart):
-            case nameof(_vm.EditorSelectionLength):
-            case nameof(_vm.CanCopyClipboard):
-            case nameof(_vm.CanPasteClipboard):
-            case nameof(_vm.EditorCaretOffset):
+            case nameof(EditorViewModel.EditorSelectionStart):
+            case nameof(EditorViewModel.EditorSelectionLength):
+            case nameof(EditorViewModel.CanCopyClipboard):
+            case nameof(EditorViewModel.CanPasteClipboard):
+            case nameof(EditorViewModel.EditorCaretOffset):
                 _editorDebouncer.DebounceOnUI("vm-selection", TimeSpan.FromMilliseconds(DebounceDispatcher.DefaultCaretDebounceMilliseconds), () =>
                 {
                     _suppressEditorStateSync = true;
@@ -389,9 +389,9 @@ public partial class MainWindow : Window
                     {
                         // Validate bounds before setting
                         int textLength = Editor.Text.Length;
-                        int validSelectionStart = Math.Max(0, Math.Min(_vm.EditorSelectionStart, textLength));
-                        int validSelectionLength = Math.Max(0, Math.Min(_vm.EditorSelectionLength, textLength - validSelectionStart));
-                        int validCaretOffset = Math.Max(0, Math.Min(_vm.EditorCaretOffset, textLength));
+                        int validSelectionStart = Math.Max(0, Math.Min(_vm.EditorViewModel.EditorSelectionStart, textLength));
+                        int validSelectionLength = Math.Max(0, Math.Min(_vm.EditorViewModel.EditorSelectionLength, textLength - validSelectionStart));
+                        int validCaretOffset = Math.Max(0, Math.Min(_vm.EditorViewModel.EditorCaretOffset, textLength));
 
                         if (Editor.SelectionStart != validSelectionStart ||
                             Editor.SelectionLength != validSelectionLength ||
@@ -436,8 +436,8 @@ public partial class MainWindow : Window
         ActualThemeVariantChanged += OnThemeChanged;
         Activated += OnActivated;
 
-        // Wire ViewModel property changed (for two-way sync)
-        _vm.PropertyChanged += _viewModelPropertyChangedHandler = OnViewModelPropertyChanged;
+        // Wire ViewModel property changed (for two-way sync with EditorViewModel)
+        _vm.EditorViewModel.PropertyChanged += _viewModelPropertyChangedHandler = OnViewModelPropertyChanged;
 
         // Note: Editor/Preview event handlers will be wired when panels are found
         // This happens in WireEditorEventHandlers() called from TryFindDockPanels()
@@ -573,7 +573,7 @@ public partial class MainWindow : Window
         _logger.LogInformation("MainWindow closing requested");
 
         // Check for unsaved changes (only if not already approved)
-        if (!_isClosingApproved && _vm.IsDirty && !string.IsNullOrWhiteSpace(_vm.DiagramText))
+        if (!_isClosingApproved && _vm.IsDirty && !string.IsNullOrWhiteSpace(_vm.EditorViewModel.DiagramText))
         {
             e.Cancel = true;
             PromptAndCloseAsync()
@@ -790,7 +790,7 @@ public partial class MainWindow : Window
     //private void OnClosing(object? sender, CancelEventArgs e)
     //{
     //    // Check for unsaved changes (only if not already approved)
-    //    if (!_isClosingApproved && _vm.IsDirty && !string.IsNullOrWhiteSpace(_vm.DiagramText))
+    //    if (!_isClosingApproved && _vm.IsDirty && !string.IsNullOrWhiteSpace(_vm.EditorViewModel.DiagramText))
     //    {
     //        e.Cancel = true;
     //        PromptAndCloseAsync()
@@ -855,7 +855,7 @@ public partial class MainWindow : Window
         // ViewModel events
         if (_viewModelPropertyChangedHandler is not null)
         {
-            _vm.PropertyChanged -= _viewModelPropertyChangedHandler;
+            _vm.EditorViewModel.PropertyChanged -= _viewModelPropertyChangedHandler;
             _viewModelPropertyChangedHandler = null;
         }
 
@@ -972,21 +972,21 @@ public partial class MainWindow : Window
             await _renderer.InitializeAsync(Preview);
 
             // Step 2: Kick first render; index.html sets globalThis.__renderingComplete__ in hideLoadingIndicator()
-            await _renderer.RenderAsync(_vm.DiagramText);
+            await _renderer.RenderAsync(_vm.EditorViewModel.DiagramText);
 
             // Step 3: Await readiness
             try
             {
                 await _renderer.EnsureFirstRenderReadyAsync(TimeSpan.FromSeconds(WebViewReadyTimeoutSeconds));
-                await Dispatcher.UIThread.InvokeAsync(() => _vm.IsWebViewReady = true);
+                await Dispatcher.UIThread.InvokeAsync(() => _vm.PreviewViewModel.IsWebViewReady = true);
                 _logger.LogInformation("WebView readiness observed");
             }
             catch (TimeoutException)
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _vm.IsWebViewReady = true;
-                    _vm.LastError = $"WebView initialization timed out after {WebViewReadyTimeoutSeconds} seconds. Some features may not work correctly.";
+                    _vm.PreviewViewModel.IsWebViewReady = true;
+                    _vm.PreviewViewModel.LastError = $"WebView initialization timed out after {WebViewReadyTimeoutSeconds} seconds. Some features may not work correctly.";
                 });
                 _logger.LogWarning("WebView readiness timed out after {TimeoutSeconds}s; enabling commands with warning", WebViewReadyTimeoutSeconds);
             }
@@ -1040,7 +1040,7 @@ public partial class MainWindow : Window
     private void GetContextMenuState(object? sender, CancelEventArgs e)
     {
         // Get Clipboard state
-        _vm.CanCopyClipboard = _vm.EditorSelectionLength > 0;
+        _vm.EditorViewModel.CanCopyClipboard = _vm.EditorViewModel.EditorSelectionLength > 0;
 
         UpdateCanPasteClipboardAsync()
             .SafeFireAndForget(onException: ex => _logger.LogError(ex, "Failed to update CanPasteClipboard"));
@@ -1104,7 +1104,7 @@ public partial class MainWindow : Window
         bool canPaste = !string.IsNullOrWhiteSpace(clipboardText);
 
         // Marshal back to UI thread to update the ViewModel property
-        await Dispatcher.UIThread.InvokeAsync(() => _vm.CanPasteClipboard = canPaste, DispatcherPriority.Normal);
+        await Dispatcher.UIThread.InvokeAsync(() => _vm.EditorViewModel.CanPasteClipboard = canPaste, DispatcherPriority.Normal);
     }
 
     #endregion Clipboard methods
