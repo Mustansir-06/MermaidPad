@@ -34,33 +34,23 @@ namespace MermaidPad.Infrastructure;
 /// </summary>
 /// <remarks>
 /// This factory follows the ContextLocator pattern from the Dock library documentation.
-/// The MainViewModel is resolved lazily from the service provider to avoid circular dependency,
-/// since both DockFactory and MainViewModel are Singletons that depend on each other.
+/// The caller (MainViewModel) is responsible for setting the ContextLocator property
+/// before calling InitLayout. This avoids circular dependencies and follows the
+/// standard Dock library pattern where the Factory creates structure and the caller
+/// provides the ViewModel mappings.
 /// </remarks>
 public sealed class DockFactory : Factory
 {
-    private readonly IServiceProvider _serviceProvider;
     private readonly DockSerializer _serializer;
     private readonly ILogger<DockFactory>? _logger;
 
     /// <summary>
-    /// Gets the MainViewModel lazily from the service provider.
-    /// This avoids a circular dependency during DI construction.
-    /// </summary>
-    private MainViewModel ViewModel => _serviceProvider.GetRequiredService<MainViewModel>();
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="DockFactory"/> class.
     /// </summary>
-    /// <param name="serviceProvider">The service provider for lazy ViewModel resolution.</param>
     /// <param name="serializer">The dock serializer for saving/loading layouts.</param>
     /// <param name="logger">Optional logger for diagnostic output.</param>
-    public DockFactory(
-        IServiceProvider serviceProvider,
-        DockSerializer serializer,
-        ILogger<DockFactory>? logger = null)
+    public DockFactory(DockSerializer serializer, ILogger<DockFactory>? logger = null)
     {
-        _serviceProvider = serviceProvider;
         _serializer = serializer;
         _logger = logger;
     }
@@ -168,22 +158,15 @@ public sealed class DockFactory : Factory
     }
 
     /// <summary>
-    /// Initializes the docking layout with ViewModel context mappings.
+    /// Initializes the docking layout with host window mappings.
     /// </summary>
     /// <param name="layout">The root dock layout to initialize.</param>
     /// <remarks>
-    /// This follows the ContextLocator pattern from the Dock library documentation.
-    /// ViewModel references are captured by closures in the ContextLocator dictionary.
+    /// The caller must set ContextLocator before calling this method.
+    /// This method sets up HostWindowLocator for floating windows.
     /// </remarks>
     public override void InitLayout(IDockable layout)
     {
-        ContextLocator = new Dictionary<string, Func<object?>>
-        {
-            ["Editor"] = () => ViewModel,
-            ["Preview"] = () => ViewModel,
-            ["AIAssistant"] = () => ViewModel.AIPanelViewModel
-        };
-
         HostWindowLocator = new Dictionary<string, Func<IHostWindow?>>
         {
             [nameof(IDockWindow)] = static () => new HostWindow()
@@ -247,18 +230,20 @@ public sealed class DockFactory : Factory
     /// Recursively restores the context for all dockable items in the layout.
     /// </summary>
     /// <param name="dockable">The dockable item to process.</param>
+    /// <remarks>
+    /// Uses the ContextLocator dictionary to restore ViewModels based on Tool IDs.
+    /// The ContextLocator must be set by the caller before calling this method.
+    /// </remarks>
     private void RestoreContexts(IDockable dockable)
     {
         // Restore context for Tool items based on their ID
         if (dockable is Tool tool && tool.Id is not null)
         {
-            tool.Context = tool.Id switch
+            // Use ContextLocator to find the appropriate context
+            if (ContextLocator?.TryGetValue(tool.Id, out Func<object?>? contextFactory) == true)
             {
-                "Editor" => ViewModel,
-                "Preview" => ViewModel,
-                "AIAssistant" => ViewModel.AIPanelViewModel,
-                _ => tool.Context
-            };
+                tool.Context = contextFactory?.Invoke();
+            }
         }
 
         // Recursively process child dockables

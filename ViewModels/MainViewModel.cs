@@ -239,7 +239,14 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel.DiagramGenerated += OnDiagramGenerated;
 
         // Initialize docking layout
-        // Factory resolves MainViewModel lazily from DI to access panel ViewModels
+        // Set up ContextLocator to map panel IDs to ViewModels
+        _dockFactory.ContextLocator = new Dictionary<string, Func<object?>>
+        {
+            ["Editor"] = () => this,
+            ["Preview"] = () => this,
+            ["AIAssistant"] = () => AIPanelViewModel
+        };
+
         // Try to load saved layout from UI settings, or create default if none exists
         if (!string.IsNullOrWhiteSpace(_uiSettingsService.Settings.DockLayout))
         {
