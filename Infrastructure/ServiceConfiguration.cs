@@ -112,6 +112,9 @@ public static class ServiceConfiguration
         services.AddSingleton<IDialogFactory, DialogFactory>();
         services.AddSingleton<IFileService, FileService>();
 
+        // Dock serialization
+        services.AddSingleton(static _ => new DockSerializer(typeof(ObservableCollection<>)));
+
         // AI Services
         services.AddSingleton<ISecureStorageService, SecureStorageService>();
         services.AddSingleton<AIServiceFactory>();

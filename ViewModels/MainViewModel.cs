@@ -24,6 +24,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Dock.Serializer.SystemTextJson;
 using MermaidPad.Infrastructure;
 using MermaidPad.Services;
 using MermaidPad.Services.AI;
@@ -233,8 +234,9 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel.DiagramGenerated += OnDiagramGenerated;
 
         // Initialize docking layout
+        DockSerializer dockSerializer = services.GetRequiredService<DockSerializer>();
         ILogger<DockFactory>? dockLogger = services.GetService<ILogger<DockFactory>>();
-        _dockFactory = new DockFactory(this, dockLogger);
+        _dockFactory = new DockFactory(this, dockSerializer, dockLogger);
 
         // Try to load saved layout from UI settings, or create default if none exists
         if (!string.IsNullOrWhiteSpace(_uiSettingsService.Settings.DockLayout))

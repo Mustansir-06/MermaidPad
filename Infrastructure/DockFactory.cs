@@ -35,16 +35,19 @@ namespace MermaidPad.Infrastructure;
 public sealed class DockFactory : Factory
 {
     private readonly MainViewModel _mainViewModel;
+    private readonly DockSerializer _serializer;
     private readonly ILogger<DockFactory>? _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DockFactory"/> class.
     /// </summary>
     /// <param name="mainViewModel">The main view model containing the panel view models.</param>
+    /// <param name="serializer">The dock serializer for saving/loading layouts.</param>
     /// <param name="logger">Optional logger for diagnostic output.</param>
-    public DockFactory(MainViewModel mainViewModel, ILogger<DockFactory>? logger = null)
+    public DockFactory(MainViewModel mainViewModel, DockSerializer serializer, ILogger<DockFactory>? logger = null)
     {
         _mainViewModel = mainViewModel;
+        _serializer = serializer;
         _logger = logger;
     }
 
@@ -181,8 +184,7 @@ public sealed class DockFactory : Factory
     {
         try
         {
-            DockSerializer serializer = new DockSerializer(typeof(ObservableCollection<>));
-            string json = serializer.Serialize(layout);
+            string json = _serializer.Serialize(layout);
             _logger?.LogInformation("Dock layout serialized successfully");
             return json;
         }
@@ -202,8 +204,7 @@ public sealed class DockFactory : Factory
     {
         try
         {
-            DockSerializer serializer = new DockSerializer(typeof(ObservableCollection<>));
-            IDock? layout = serializer.Deserialize<IDock>(json);
+            IDock? layout = _serializer.Deserialize<IDock>(json);
 
             if (layout is not null)
             {
