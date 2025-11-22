@@ -616,12 +616,6 @@ public partial class MainWindow : Window
 
     #endregion Lifecycle Overrides
 
-    //protected override void OnActualThemeVariantChanged(ActualThemeVariantChangedEventArgs e)
-    //    {
-    //    base.OnActualThemeVariantChanged(e);
-    //    OnThemeChanged(this, EventArgs.Empty);
-    //}
-
     /// <summary>
     /// Brings focus to the editor control and adjusts visuals for caret and selection.
     /// </summary>
@@ -959,8 +953,8 @@ public partial class MainWindow : Window
         // Temporarily disable live preview during WebView initialization
         bool originalLivePreview = await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            bool current = _vm.LivePreviewEnabled;
-            _vm.LivePreviewEnabled = false;
+            bool current = _vm.PreviewViewModel.LivePreviewEnabled;
+            _vm.PreviewViewModel.LivePreviewEnabled = false;
             _logger.LogInformation("Temporarily disabled live preview (was: {Current})", current);
             return current;
         }, DispatcherPriority.Normal);
@@ -1019,7 +1013,7 @@ public partial class MainWindow : Window
             // Re-enable live preview after WebView is ready (or on failure)
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _vm.LivePreviewEnabled = originalLivePreview;
+                _vm.PreviewViewModel.LivePreviewEnabled = originalLivePreview;
                 _logger.LogInformation("Re-enabled live preview: {OriginalLivePreview}", originalLivePreview);
             });
         }
@@ -1147,11 +1141,20 @@ public partial class MainWindow : Window
     {
         try
         {
-            // Get syntax highlighting service from App.Services
+            // IMPORTANT: This event can fire before the editor is initialized (OnAttachedToVisualTree happens
+            // before TryFindDockPanels). InitializeSyntaxHighlighting is called when the editor is found.
+            // UpdateThemeForVariant will only affect the editor if it's already initialized.
+            if (_editor is null)
+            {
+                _logger.LogDebug("Theme changed before editor initialized - theme will be applied during editor initialization");
+                return;
+            }
+
             bool isDarkTheme = ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
 
-            // Update syntax highlighting theme to match
+            // Update syntax highlighting theme to match current theme
             _syntaxHighlightingService.UpdateThemeForVariant(isDarkTheme);
+            _logger.LogInformation("Updated syntax highlighting theme to {Theme}", isDarkTheme ? "Dark" : "Light");
         }
         catch (Exception ex)
         {
