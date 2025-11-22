@@ -168,11 +168,22 @@ public partial class MainWindow : Window
         // Wire editor event handlers (now that editor exists)
         WireEditorEventHandlers();
 
-        // Find PreviewPanel
+        // Find PreviewPanel and initialize WebView
         if (previewPanel is not null)
         {
             _preview = previewPanel.Preview;
-            _logger.LogInformation("PreviewPanel found - preview WebView ready");
+            _logger.LogInformation("PreviewPanel found - initializing WebView");
+
+            // Initialize WebView asynchronously now that _preview is assigned
+            InitializeWebViewAsync()
+                .SafeFireAndForget(onException: ex =>
+                {
+                    _logger.LogError(ex, "Failed to initialize WebView");
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        _vm.PreviewViewModel.LastError = $"WebView initialization failed: {ex.Message}";
+                    });
+                });
         }
         else
         {
@@ -719,14 +730,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Performs the longer-running open sequence: check for updates, initialize the WebView, and update command states.
+    /// Performs the longer-running open sequence: check for updates and update command states.
     /// </summary>
     /// <returns>A task representing the asynchronous open sequence.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if required update assets cannot be resolved.</exception>
     /// <remarks>
-    /// This method logs timing information, performs an update check by calling <see cref="MainViewModel.CheckForMermaidUpdatesAsync"/>,
-    /// initializes the renderer via <see cref="InitializeWebViewAsync"/>, and notifies commands to refresh their CanExecute state.
-    /// Exceptions are propagated for higher-level handling.
+    /// WebView initialization now happens in TryFindDockPanels (when _preview is found).
+    /// This method focuses on post-initialization tasks like update checks and command state updates.
     /// </remarks>
     private async Task OnOpenedAsync()
     {
@@ -742,25 +751,16 @@ public partial class MainWindow : Window
             //await _vm.CheckForMermaidUpdatesAsync();
             //_logger.LogInformation("Mermaid update check completed");
 
-            // Step 2: Initialize WebView (editor state is already synchronized via constructor)
-            _logger.LogInformation("Step 2: Initializing WebView...");
-            string? assetsPath = Path.GetDirectoryName(_updateService.BundledMermaidPath);
-            if (assetsPath is null)
-            {
-                const string error = "BundledMermaidPath does not contain a directory component";
-                _logger.LogError(error);
-                throw new InvalidOperationException(error);
-            }
+            // NOTE: WebView initialization now happens in TryFindDockPanels after _preview is assigned
+            // (moved from here to fix initialization ordering)
 
-            // Needs to be on UI thread
-            await InitializeWebViewAsync();
-
-            // Step 3: Update command states
-            _logger.LogInformation("Step 3: Updating command states...");
+            // Step 2: Update command states (ensure commands reflect WebView ready state)
+            _logger.LogInformation("Step 2: Updating command states...");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 _vm.RenderCommand.NotifyCanExecuteChanged();
                 _vm.ClearCommand.NotifyCanExecuteChanged();
+                _vm.ExportCommand.NotifyCanExecuteChanged();
             });
 
             stopwatch.Stop();
@@ -985,7 +985,7 @@ public partial class MainWindow : Window
         try
         {
             // Step 1: Initialize renderer (starts HTTP server + navigate)
-            // Null-forgiving operator is safe: this method is only called from OnLoadedAsync after _preview is assigned
+            // Null-forgiving operator is safe: this method is only called from TryFindDockPanels after _preview is assigned
             await _renderer.InitializeAsync(_preview!);
 
             // Step 2: Kick first render; index.html sets globalThis.__renderingComplete__ in hideLoadingIndicator()
@@ -1024,7 +1024,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            // Log and rethrow so OnOpenedAsync observes the failure and can abort the sequence
+            // Log and rethrow - caught by SafeFireAndForget handler in TryFindDockPanels
             _logger.LogError(ex, "WebView initialization failed");
             throw;
         }
