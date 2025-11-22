@@ -154,7 +154,23 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Unsubscribe from Loaded event (only need to run once)
+        // Check if Layout binding has been processed
+        if (dockControl.Layout is null)
+        {
+            _logger.LogWarning("DockControl.Layout is null when Loaded event fired - binding not processed yet");
+            // Don't unsubscribe - wait for layout to be set
+            // Post to retry after bindings are processed
+            Dispatcher.UIThread.Post(() =>
+            {
+                _logger.LogInformation("Retrying panel initialization after bindings processed");
+                OnDockControlLoaded(dockControl, e);
+            }, DispatcherPriority.Loaded);
+            return;
+        }
+
+        _logger.LogInformation("DockControl.Layout is set, proceeding to find panels");
+
+        // Unsubscribe from Loaded event (only need to run once we succeed)
         if (_dockControlLoadedHandler is not null)
         {
             dockControl.Loaded -= _dockControlLoadedHandler;
