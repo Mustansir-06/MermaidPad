@@ -72,7 +72,7 @@ public partial class MainWindow : Window
     private EventHandler? _themeChangedHandler;
     private EventHandler? _activatedHandler;
     // DockControl handler
-    private EventHandler<RoutedEventArgs>? _dockControlLoadedHandler;
+    private EventHandler? _dockControlLayoutUpdatedHandler;
     // ViewModel handlers
     private PropertyChangedEventHandler? _viewModelPropertyChangedHandler;
     // Editor handlers (initialized when editor is found)
@@ -117,36 +117,34 @@ public partial class MainWindow : Window
             _logger.LogWarning(ex, "Failed to initialize syntax highlighting service - will continue without highlighting");
         }
 
-        // Wire DockControl.Loaded event to find panels when DataTemplates have been applied
-        // This is the correct lifecycle event - guarantees visual tree is ready
+        // Wire DockControl.LayoutUpdated event to find panels after layout calculations complete
+        // LayoutUpdated fires after the layout system has positioned all controls
         DockControl? dockControl = this.FindControl<DockControl>("MainDock");
         if (dockControl is not null)
         {
-            dockControl.Loaded += _dockControlLoadedHandler = OnDockControlLoaded;
-            _logger.LogInformation("DockControl.Loaded event handler wired");
+            dockControl.LayoutUpdated += _dockControlLayoutUpdatedHandler = OnDockControlLayoutUpdated;
+            _logger.LogInformation("DockControl.LayoutUpdated event handler wired");
         }
         else
         {
-            _logger.LogError("DockControl 'MainDock' not found - cannot wire Loaded event");
+            _logger.LogError("DockControl 'MainDock' not found - cannot wire LayoutUpdated event");
         }
 
         _logger.LogInformation("MainWindow constructor completed");
     }
 
     /// <summary>
-    /// Called when DockControl has finished loading and its DataTemplates have been applied.
+    /// Called when DockControl has completed a layout pass.
     /// </summary>
     /// <remarks>
-    /// This event fires AFTER DockControl's DataTemplates have created the panel controls
-    /// and added them to the visual tree. At this point, all panels are guaranteed to exist
-    /// and can be found via visual tree search.
+    /// LayoutUpdated fires after the layout system has completed calculations and positioned controls.
+    /// This is when DockControl's DataTemplates have created the panel controls and added them
+    /// to the visual tree.
     ///
-    /// This is the correct lifecycle event to use - no retry loops or delays needed.
+    /// NOTE: This event can fire multiple times, so we must unsubscribe after successful initialization.
     /// </remarks>
-    private void OnDockControlLoaded(object? sender, RoutedEventArgs e)
+    private void OnDockControlLayoutUpdated(object? sender, EventArgs e)
     {
-        _logger.LogInformation("DockControl Loaded event fired - finding panels");
-
         DockControl? dockControl = sender as DockControl;
         if (dockControl is null)
         {
@@ -157,42 +155,30 @@ public partial class MainWindow : Window
         // Check if Layout binding has been processed
         if (dockControl.Layout is null)
         {
-            _logger.LogWarning("DockControl.Layout is null when Loaded event fired - binding not processed yet");
-            // Don't unsubscribe - wait for layout to be set
-            // Post to retry after bindings are processed
-            Dispatcher.UIThread.Post(() =>
-            {
-                _logger.LogInformation("Retrying panel initialization after bindings processed");
-                OnDockControlLoaded(dockControl, e);
-            }, DispatcherPriority.Loaded);
+            // Layout not set yet, wait for next LayoutUpdated
             return;
         }
 
-        _logger.LogInformation("DockControl.Layout is set, proceeding to find panels");
-
-        // Unsubscribe from Loaded event (only need to run once we succeed)
-        if (_dockControlLoadedHandler is not null)
-        {
-            dockControl.Loaded -= _dockControlLoadedHandler;
-            _dockControlLoadedHandler = null;
-        }
-
         // Find EditorPanel and PreviewPanel from DataTemplates
-        // By the time Loaded fires, DataTemplates have been applied and panels exist in visual tree
         EditorPanel? editorPanel = dockControl.GetVisualDescendants().OfType<EditorPanel>().FirstOrDefault();
         PreviewPanel? previewPanel = dockControl.GetVisualDescendants().OfType<PreviewPanel>().FirstOrDefault();
 
         if (editorPanel is null)
         {
-            _logger.LogError(
-                "EditorPanel not found in DockControl visual tree. " +
-                "Check that DockFactory.CreateLayout() creates Tools with correct IDs, " +
-                "that ContextLocator maps those IDs to the correct ViewModels, " +
-                "and that DataTemplates in MainWindow.axaml map ViewModel types to panel UserControls.");
+            // Panels not in visual tree yet, wait for next LayoutUpdated
             return;
         }
 
-        // Found EditorPanel - initialize it
+        // Found panels! Unsubscribe from LayoutUpdated (prevent this from running again)
+        if (_dockControlLayoutUpdatedHandler is not null)
+        {
+            dockControl.LayoutUpdated -= _dockControlLayoutUpdatedHandler;
+            _dockControlLayoutUpdatedHandler = null;
+        }
+
+        _logger.LogInformation("DockControl LayoutUpdated - panels found, initializing");
+
+        // Initialize EditorPanel
         _editor = editorPanel.Editor;
         _logger.LogInformation("EditorPanel found - initializing editor");
 
@@ -910,14 +896,14 @@ public partial class MainWindow : Window
         }
 
         // DockControl events
-        if (_dockControlLoadedHandler is not null)
+        if (_dockControlLayoutUpdatedHandler is not null)
         {
             DockControl? dockControl = this.FindControl<DockControl>("MainDock");
             if (dockControl is not null)
             {
-                dockControl.Loaded -= _dockControlLoadedHandler;
+                dockControl.LayoutUpdated -= _dockControlLayoutUpdatedHandler;
             }
-            _dockControlLoadedHandler = null;
+            _dockControlLayoutUpdatedHandler = null;
         }
 
         // ViewModel events
