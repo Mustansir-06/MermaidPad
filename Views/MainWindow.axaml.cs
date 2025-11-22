@@ -60,8 +60,10 @@ public partial class MainWindow : Window
     private bool _isClosingApproved;
     private bool _suppressEditorTextChanged;
     private bool _suppressEditorStateSync; // Prevent circular updates
+    private int _panelSearchRetryCount;
 
     private const int WebViewReadyTimeoutSeconds = 30;
+    private const int MaxPanelSearchRetries = 50; // Prevent infinite retry loop
 
     // Controls accessed from Dock panels (nullable - initialized when panels are found)
     private TextEditor? _editor;
@@ -126,6 +128,7 @@ public partial class MainWindow : Window
     /// for the panels and wires up their event handlers.
     ///
     /// If panels are not found, retries after a short delay (DataTemplates may still be applying).
+    /// Gives up after MaxPanelSearchRetries attempts to prevent infinite loops.
     /// </remarks>
     private void TryFindDockPanels()
     {
@@ -142,7 +145,21 @@ public partial class MainWindow : Window
 
         if (editorPanel is null)
         {
-            _logger.LogWarning("EditorPanel not found yet - will retry after short delay");
+            _panelSearchRetryCount++;
+
+            if (_panelSearchRetryCount >= MaxPanelSearchRetries)
+            {
+                _logger.LogError(
+                    "EditorPanel not found after {RetryCount} attempts. " +
+                    "Check that DockFactory.CreateLayout() creates Tools with correct IDs, " +
+                    "and that ContextLocator maps those IDs to the correct ViewModels, " +
+                    "and that DataTemplates in MainWindow.axaml map ViewModel types to panel UserControls.",
+                    _panelSearchRetryCount);
+                return;
+            }
+
+            _logger.LogWarning("EditorPanel not found yet (attempt {Attempt}/{Max}) - will retry after short delay",
+                _panelSearchRetryCount, MaxPanelSearchRetries);
             // Retry with lower priority to allow DataTemplates to apply
             Dispatcher.UIThread.Post(TryFindDockPanels, DispatcherPriority.Background);
             return;
