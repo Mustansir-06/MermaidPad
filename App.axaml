@@ -2,13 +2,36 @@
   x:Class="MermaidPad.App"
   xmlns="https://github.com/avaloniaui"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:converters="clr-namespace:MermaidPad.Converters">
+  xmlns:converters="clr-namespace:MermaidPad.Converters"
+  xmlns:vm="clr-namespace:MermaidPad.ViewModels"
+  xmlns:panels="clr-namespace:MermaidPad.Views.Panels"
+  xmlns:views="clr-namespace:MermaidPad.Views">
 
   <Application.Resources>
     <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
     <converters:InverseBoolToObjectConverter x:Key="InverseBoolToObjectConverter" />
   </Application.Resources>
-  
+
+  <!-- DataTemplates for Dock panels must be registered at application level -->
+  <Application.DataTemplates>
+
+    <!-- Editor Panel Template - keyed by EditorViewModel -->
+    <DataTemplate DataType="vm:EditorViewModel">
+      <panels:EditorPanel />
+    </DataTemplate>
+
+    <!-- Preview Panel Template - keyed by PreviewViewModel -->
+    <DataTemplate DataType="vm:PreviewViewModel">
+      <panels:PreviewPanel />
+    </DataTemplate>
+
+    <!-- AI Assistant Panel Template - keyed by AIPanelViewModel -->
+    <DataTemplate DataType="vm:AIPanelViewModel">
+      <views:AIPanel />
+    </DataTemplate>
+
+  </Application.DataTemplates>
+
   <Application.Styles>
     <!--<StyleInclude Source="avares://MermaidPad/Styles/Styles.axaml" />
     <StyleInclude Source="avares://MermaidPad/Styles/FluentTheme.axaml" />-->

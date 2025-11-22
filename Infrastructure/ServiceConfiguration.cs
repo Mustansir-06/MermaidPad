@@ -20,6 +20,7 @@
 
 using Dock.Model.Core;
 using Dock.Model.Mvvm.Controls;
+using Dock.Serializer.SystemTextJson;
 using MermaidPad.Services;
 using MermaidPad.Services.AI;
 using MermaidPad.Services.Export;
@@ -115,7 +116,17 @@ public static class ServiceConfiguration
         services.AddSingleton<IFileService, FileService>();
 
         // Dock serialization - registers Factory, Serializer, and DockState as singletons
-        services.AddDock<DockFactory, DockSerializer>();
+        // Custom DockSerializer configuration to handle object cycles with ReferenceHandler.Preserve
+        services.AddSingleton<DockSerializer>(static sp =>
+        {
+            System.Text.Json.JsonSerializerOptions options = new()
+            {
+                WriteIndented = true,
+                ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
+            };
+            return new DockSerializer(options);
+        });
+        services.AddSingleton<DockFactory>();
 
         // AI Services
         services.AddSingleton<ISecureStorageService, SecureStorageService>();

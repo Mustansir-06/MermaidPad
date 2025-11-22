@@ -126,28 +126,10 @@
     </StackPanel>
 
     <!-- Dockable Panel System -->
+    <!-- DataTemplates are registered in App.axaml (application-level requirement for Dock) -->
     <dock:DockControl
       x:Name="MainDock"
       Margin="6,0,6,6"
-      Layout="{Binding Layout}">
-      <dock:DockControl.DataTemplates>
-
-        <!-- Editor Panel Template - keyed by EditorViewModel -->
-        <DataTemplate DataType="vm:EditorViewModel">
-          <panels:EditorPanel x:Name="EditorPanel" />
-        </DataTemplate>
-
-        <!-- Preview Panel Template - keyed by PreviewViewModel -->
-        <DataTemplate DataType="vm:PreviewViewModel">
-          <panels:PreviewPanel x:Name="PreviewPanel" />
-        </DataTemplate>
-
-        <!-- AI Assistant Panel Template - keyed by AIPanelViewModel -->
-        <DataTemplate DataType="vm:AIPanelViewModel">
-          <views:AIPanel />
-        </DataTemplate>
-
-      </dock:DockControl.DataTemplates>
-    </dock:DockControl>
+      Layout="{Binding Layout}" />
   </DockPanel>
 </Window>
