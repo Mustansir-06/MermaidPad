@@ -116,16 +116,8 @@ public static class ServiceConfiguration
         services.AddSingleton<IFileService, FileService>();
 
         // Dock serialization - registers Factory, Serializer, and DockState as singletons
-        // Custom DockSerializer configuration to handle object cycles with ReferenceHandler.Preserve
-        services.AddSingleton<DockSerializer>(static sp =>
-        {
-            System.Text.Json.JsonSerializerOptions options = new()
-            {
-                WriteIndented = true,
-                ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
-            };
-            return new DockSerializer(options);
-        });
+        // DockSerializer already configures ReferenceHandler.Preserve internally to handle object cycles
+        services.AddSingleton<DockSerializer>();
         services.AddSingleton<DockFactory>();
 
         // AI Services
