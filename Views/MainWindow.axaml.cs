@@ -63,19 +63,20 @@ public partial class MainWindow : Window
 
     private const int WebViewReadyTimeoutSeconds = 30;
 
-    // Controls accessed from Dock panels
+    // Controls accessed from Dock panels (nullable - initialized when panels are found)
     private TextEditor? _editor;
     private WebView? _preview;
 
-    // Properties to access controls (for code that expects them as properties)
-    private TextEditor Editor => _editor ?? throw new InvalidOperationException("Editor not initialized yet");
-    private WebView Preview => _preview ?? throw new InvalidOperationException("Preview not initialized yet");
-
     // Event handlers stored for proper cleanup
+    // Window-level handlers
+    private EventHandler? _themeChangedHandler;
+    private EventHandler? _activatedHandler;
+    // ViewModel handlers
+    private PropertyChangedEventHandler? _viewModelPropertyChangedHandler;
+    // Editor handlers (initialized when editor is found)
     private EventHandler? _editorTextChangedHandler;
     private EventHandler? _editorSelectionChangedHandler;
     private EventHandler? _editorCaretPositionChangedHandler;
-    private PropertyChangedEventHandler? _viewModelPropertyChangedHandler;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
@@ -101,6 +102,18 @@ public partial class MainWindow : Window
         _syntaxHighlightingService = sp.GetRequiredService<SyntaxHighlightingService>();
         _logger = sp.GetRequiredService<ILogger<MainWindow>>();
         DataContext = _vm;
+
+        // IMPORTANT: Initialize syntax highlighting service BEFORE theme handler is wired (in OnAttachedToVisualTree)
+        // This loads grammar resources but doesn't apply to editor yet (that happens in TryFindDockPanels)
+        try
+        {
+            _syntaxHighlightingService.Initialize();
+            _logger.LogInformation("Syntax highlighting service initialized (grammar resources loaded)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to initialize syntax highlighting service - will continue without highlighting");
+        }
 
         _logger.LogInformation("MainWindow constructor completed - event handlers will be wired in OnAttachedToVisualTree");
     }
@@ -206,21 +219,21 @@ public partial class MainWindow : Window
         _suppressEditorStateSync = true; // Prevent circular updates during initialization
         try
         {
-            Editor.Text = text;
+            _editor!.Text = text;
 
             // Ensure selection bounds are valid
             int textLength = text.Length;
             int validSelectionStart = Math.Max(0, Math.Min(selectionStart, textLength));
             int validSelectionLength = Math.Max(0, Math.Min(selectionLength, textLength - validSelectionStart));
             int validCaretOffset = Math.Max(0, Math.Min(caretOffset, textLength));
-            Editor.SelectionStart = validSelectionStart;
-            Editor.SelectionLength = validSelectionLength;
-            Editor.CaretOffset = validCaretOffset;
+            _editor!.SelectionStart = validSelectionStart;
+            _editor!.SelectionLength = validSelectionLength;
+            _editor!.CaretOffset = validCaretOffset;
 
             // Since this is yaml/diagram text, convert tabs to spaces for correct rendering
-            Editor.Options.ConvertTabsToSpaces = true;
-            Editor.Options.HighlightCurrentLine = true;
-            Editor.Options.IndentationSize = 2;
+            _editor!.Options.ConvertTabsToSpaces = true;
+            _editor!.Options.HighlightCurrentLine = true;
+            _editor!.Options.IndentationSize = 2;
 
             _logger.LogInformation("Editor state set with {CharacterCount} characters", textLength);
         }
@@ -251,12 +264,12 @@ public partial class MainWindow : Window
             // Debounce to avoid excessive updates
             _editorDebouncer.DebounceOnUI("editor-text", TimeSpan.FromMilliseconds(DebounceDispatcher.DefaultTextDebounceMilliseconds), () =>
             {
-                if (_vm.EditorViewModel.DiagramText != Editor.Text)
+                if (_vm.EditorViewModel.DiagramText != _editor!.Text)
                 {
                     _suppressEditorStateSync = true;
                     try
                     {
-                        _vm.EditorViewModel.DiagramText = Editor.Text;
+                        _vm.EditorViewModel.DiagramText = _editor!.Text;
                     }
                     finally
                     {
@@ -266,7 +279,7 @@ public partial class MainWindow : Window
             },
             DispatcherPriority.Background);
         };
-        Editor.TextChanged += _editorTextChangedHandler;
+        _editor!.TextChanged += _editorTextChangedHandler;
 
         // Editor selection/caret -> ViewModel: subscribe to both, coalesce into one update
         _editorSelectionChangedHandler = (_, _) =>
@@ -278,7 +291,7 @@ public partial class MainWindow : Window
 
             ScheduleEditorStateSyncIfNeeded();
         };
-        Editor.TextArea.SelectionChanged += _editorSelectionChangedHandler;
+        _editor!.TextArea.SelectionChanged += _editorSelectionChangedHandler;
 
         _editorCaretPositionChangedHandler = (_, _) =>
         {
@@ -289,7 +302,7 @@ public partial class MainWindow : Window
 
             ScheduleEditorStateSyncIfNeeded();
         };
-        Editor.TextArea.Caret.PositionChanged += _editorCaretPositionChangedHandler;
+        _editor!.TextArea.Caret.PositionChanged += _editorCaretPositionChangedHandler;
 
         // ViewModel -> Editor synchronization
         _viewModelPropertyChangedHandler = OnViewModelPropertyChanged;
@@ -312,9 +325,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        int selectionStart = Editor.SelectionStart;
-        int selectionLength = Editor.SelectionLength;
-        int caretOffset = Editor.CaretOffset;
+        int selectionStart = _editor!.SelectionStart;
+        int selectionLength = _editor!.SelectionLength;
+        int caretOffset = _editor!.CaretOffset;
 
         if (selectionStart == _vm.EditorViewModel.EditorSelectionStart &&
             selectionLength == _vm.EditorViewModel.EditorSelectionLength &&
@@ -329,9 +342,9 @@ public partial class MainWindow : Window
             try
             {
                 // Take the latest values at execution time to coalesce multiple events
-                _vm.EditorViewModel.EditorSelectionStart = Editor.SelectionStart;
-                _vm.EditorViewModel.EditorSelectionLength = Editor.SelectionLength;
-                _vm.EditorViewModel.EditorCaretOffset = Editor.CaretOffset;
+                _vm.EditorViewModel.EditorSelectionStart = _editor!.SelectionStart;
+                _vm.EditorViewModel.EditorSelectionLength = _editor!.SelectionLength;
+                _vm.EditorViewModel.EditorCaretOffset = _editor!.CaretOffset;
             }
             finally
             {
@@ -357,7 +370,7 @@ public partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(EditorViewModel.DiagramText):
-                if (Editor.Text != _vm.EditorViewModel.DiagramText)
+                if (_editor!.Text != _vm.EditorViewModel.DiagramText)
                 {
                     _editorDebouncer.DebounceOnUI("vm-text", TimeSpan.FromMilliseconds(DebounceDispatcher.DefaultTextDebounceMilliseconds), () =>
                     {
@@ -365,7 +378,7 @@ public partial class MainWindow : Window
                         _suppressEditorStateSync = true;
                         try
                         {
-                            Editor.Text = _vm.EditorViewModel.DiagramText;
+                            _editor!.Text = _vm.EditorViewModel.DiagramText;
                         }
                         finally
                         {
@@ -388,18 +401,18 @@ public partial class MainWindow : Window
                     try
                     {
                         // Validate bounds before setting
-                        int textLength = Editor.Text.Length;
+                        int textLength = _editor!.Text.Length;
                         int validSelectionStart = Math.Max(0, Math.Min(_vm.EditorViewModel.EditorSelectionStart, textLength));
                         int validSelectionLength = Math.Max(0, Math.Min(_vm.EditorViewModel.EditorSelectionLength, textLength - validSelectionStart));
                         int validCaretOffset = Math.Max(0, Math.Min(_vm.EditorViewModel.EditorCaretOffset, textLength));
 
-                        if (Editor.SelectionStart != validSelectionStart ||
-                            Editor.SelectionLength != validSelectionLength ||
-                            Editor.CaretOffset != validCaretOffset)
+                        if (_editor!.SelectionStart != validSelectionStart ||
+                            _editor!.SelectionLength != validSelectionLength ||
+                            _editor!.CaretOffset != validCaretOffset)
                         {
-                            Editor.SelectionStart = validSelectionStart;
-                            Editor.SelectionLength = validSelectionLength;
-                            Editor.CaretOffset = validCaretOffset;
+                            _editor!.SelectionStart = validSelectionStart;
+                            _editor!.SelectionLength = validSelectionLength;
+                            _editor!.CaretOffset = validCaretOffset;
                         }
                     }
                     finally
@@ -432,9 +445,9 @@ public partial class MainWindow : Window
 
         _logger.LogInformation("MainWindow attached to visual tree - wiring event handlers");
 
-        // Wire window-level event handlers
-        ActualThemeVariantChanged += OnThemeChanged;
-        Activated += OnActivated;
+        // Wire window-level event handlers (store in fields for consistent cleanup)
+        ActualThemeVariantChanged += _themeChangedHandler = OnThemeChanged;
+        Activated += _activatedHandler = OnActivated;
 
         // Wire ViewModel property changed (for two-way sync with EditorViewModel)
         _vm.EditorViewModel.PropertyChanged += _viewModelPropertyChangedHandler = OnViewModelPropertyChanged;
@@ -843,8 +856,17 @@ public partial class MainWindow : Window
         _logger.LogInformation("Unsubscribing all event handlers");
 
         // Window-level events
-        ActualThemeVariantChanged -= OnThemeChanged;
-        Activated -= OnActivated;
+        if (_themeChangedHandler is not null)
+        {
+            ActualThemeVariantChanged -= _themeChangedHandler;
+            _themeChangedHandler = null;
+        }
+
+        if (_activatedHandler is not null)
+        {
+            Activated -= _activatedHandler;
+            _activatedHandler = null;
+        }
 
         // ViewModel events
         if (_viewModelPropertyChangedHandler is not null)
@@ -963,7 +985,8 @@ public partial class MainWindow : Window
         try
         {
             // Step 1: Initialize renderer (starts HTTP server + navigate)
-            await _renderer.InitializeAsync(Preview);
+            // Null-forgiving operator is safe: this method is only called from OnLoadedAsync after _preview is assigned
+            await _renderer.InitializeAsync(_preview!);
 
             // Step 2: Kick first render; index.html sets globalThis.__renderingComplete__ in hideLoadingIndicator()
             await _renderer.RenderAsync(_vm.EditorViewModel.DiagramText);
@@ -1106,27 +1129,25 @@ public partial class MainWindow : Window
     #region Syntax Highlighting methods
 
     /// <summary>
-    /// Initializes syntax highlighting for the text editor.
+    /// Applies syntax highlighting to the editor control.
     /// </summary>
     /// <remarks>
-    /// This method initializes the syntax highlighting service and applies Mermaid syntax highlighting
-    /// to the editor. The theme is automatically selected based on the current Avalonia theme variant.
+    /// The service must already be initialized (done in constructor).
+    /// This method applies the highlighting to the specific editor instance with automatic theme detection.
     /// </remarks>
     private void InitializeSyntaxHighlighting()
     {
         try
         {
-            // Initialize the service (verifies grammar resources exist)
-            _syntaxHighlightingService.Initialize();
+            // Service is already initialized in constructor - just apply to editor with automatic theme detection
+            // Null-forgiving operator is safe here: method is only called from TryFindDockPanels after _editor is assigned
+            _syntaxHighlightingService.ApplyTo(_editor!);
 
-            // Apply Mermaid syntax highlighting with automatic theme detection
-            _syntaxHighlightingService.ApplyTo(Editor);
-
-            _logger.LogInformation("Syntax highlighting initialized successfully");
+            _logger.LogInformation("Syntax highlighting applied to editor successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to initialize syntax highlighting");
+            _logger.LogWarning(ex, "Failed to apply syntax highlighting to editor");
             // Non-fatal: Continue without syntax highlighting rather than crash the application
         }
     }
@@ -1134,6 +1155,10 @@ public partial class MainWindow : Window
     /// <summary>
     /// Handles theme variant changes to update syntax highlighting theme.
     /// </summary>
+    /// <remarks>
+    /// This event can fire before the editor is initialized. The theme will be applied
+    /// when the editor is first initialized via InitializeSyntaxHighlighting().
+    /// </remarks>
     /// <param name="sender">The event sender.</param>
     /// <param name="e">The event arguments.</param>
     [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Event handler signature requires these parameters")]
@@ -1141,9 +1166,8 @@ public partial class MainWindow : Window
     {
         try
         {
-            // IMPORTANT: This event can fire before the editor is initialized (OnAttachedToVisualTree happens
-            // before TryFindDockPanels). InitializeSyntaxHighlighting is called when the editor is found.
-            // UpdateThemeForVariant will only affect the editor if it's already initialized.
+            // Guard: Editor may not be initialized yet (theme handler is wired in OnAttachedToVisualTree,
+            // but editor is found later in TryFindDockPanels)
             if (_editor is null)
             {
                 _logger.LogDebug("Theme changed before editor initialized - theme will be applied during editor initialization");
