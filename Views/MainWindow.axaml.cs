@@ -485,7 +485,17 @@ public sealed partial class MainWindow : Window
         }
 
         _logger.LogInformation("DockControl LayoutUpdated - panels found, initializing");
+        InitializePanels(editorPanel, previewPanel, aiPanel);
+    }
 
+    /// <summary>
+    /// Initializes the editor, preview, and AI panels once they've been found in the visual tree.
+    /// </summary>
+    /// <param name="editorPanel">The editor panel (required).</param>
+    /// <param name="previewPanel">The preview panel (required).</param>
+    /// <param name="aiPanel">The AI panel (optional).</param>
+    private void InitializePanels(EditorPanel editorPanel, PreviewPanel previewPanel, AIPanel? aiPanel)
+    {
         // Initialize EditorPanel
         _editor = editorPanel.Editor;
         Debug.Assert(_editor is not null, "EditorPanel.Editor should not be null");
@@ -507,24 +517,19 @@ public sealed partial class MainWindow : Window
         // Wire editor event handlers (now that editor exists)
         WireEditorEventHandlers();
 
-        // Find PreviewPanel and initialize WebView
-        if (previewPanel is not null)
-        {
-            _preview = previewPanel.Preview;
-            _logger.LogInformation("PreviewPanel found - initializing WebView");
+        // Initialize PreviewPanel and WebView
+        _preview = previewPanel.Preview;
+        _logger.LogInformation("PreviewPanel found - initializing WebView");
 
-            // Initialize WebView asynchronously now that _preview is assigned
-            InitializeWebViewAsync()
-                .SafeFireAndForget(onException: ex =>
-                {
-                    _logger.LogError(ex, "Failed to initialize WebView");
-                    Dispatcher.UIThread.Post(() => ViewModel.PreviewViewModel.LastError = $"WebView initialization failed: {ex.Message}");
-                });
-        }
-        else
-        {
-            _logger.LogWarning("PreviewPanel not found in visual tree");
-        }
+        // Initialize WebView asynchronously now that _preview is assigned
+        InitializeWebViewAsync()
+            .SafeFireAndForget(onException: ex =>
+            {
+                _logger.LogError(ex, "Failed to initialize WebView");
+                Dispatcher.UIThread.Post(() => ViewModel.PreviewViewModel.LastError = $"WebView initialization failed: {ex.Message}");
+            });
+
+        _logger.LogInformation("=== PANEL INITIALIZATION COMPLETE ===");
     }
 
     /// <summary>
@@ -586,17 +591,35 @@ public sealed partial class MainWindow : Window
         _logger.LogInformation("ViewModel.Layout exists: {Exists}", ViewModel?.Layout != null);
         _logger.LogInformation("DataContext == ViewModel: {Same}", DataContext == ViewModel);
 
-        // Wire DockControl.LayoutUpdated event to find panels after layout calculations complete
-        // This is done here (not in constructor) because MainDock must be initialized first
-        if (MainDock is not null)
+        if (MainDock is null)
         {
-            _dockControlLayoutUpdatedHandler = OnDockControlLayoutUpdated;
-            MainDock.LayoutUpdated += _dockControlLayoutUpdatedHandler;
-            _logger.LogInformation($"{nameof(MainDock)}.{nameof(MainDock.LayoutUpdated)} event handler wired successfully");
+            _logger.LogError("MainDock is null - cannot initialize panels");
+            return;
+        }
+
+        // Check if panels already exist in the visual tree
+        // (LayoutUpdated may have already fired during XAML initialization before we could wire the handler)
+        _logger.LogInformation("=== CHECKING FOR EXISTING PANELS IN VISUAL TREE ===");
+        EditorPanel? editorPanel = MainDock.GetVisualDescendants().OfType<EditorPanel>().FirstOrDefault();
+        PreviewPanel? previewPanel = MainDock.GetVisualDescendants().OfType<PreviewPanel>().FirstOrDefault();
+        AIPanel? aiPanel = MainDock.GetVisualDescendants().OfType<AIPanel>().FirstOrDefault();
+
+        _logger.LogInformation("Existing panels found: EditorPanel={E}, PreviewPanel={P}, AIPanel={A}",
+            editorPanel != null, previewPanel != null, aiPanel != null);
+
+        if (editorPanel != null && previewPanel != null)
+        {
+            // Panels already exist! Initialize them directly
+            _logger.LogInformation("=== PANELS ALREADY EXIST - INITIALIZING DIRECTLY (LayoutUpdated already fired) ===");
+            InitializePanels(editorPanel, previewPanel, aiPanel);
         }
         else
         {
-            _logger.LogError($"DockControl '{nameof(MainDock)}' not found - cannot wire {nameof(MainDock.LayoutUpdated)} event");
+            // Panels don't exist yet - wire LayoutUpdated handler to wait for them
+            _logger.LogInformation("=== PANELS NOT FOUND YET - WIRING LAYOUTUPDATED HANDLER ===");
+            _dockControlLayoutUpdatedHandler = OnDockControlLayoutUpdated;
+            MainDock.LayoutUpdated += _dockControlLayoutUpdatedHandler;
+            _logger.LogInformation($"{nameof(MainDock)}.{nameof(MainDock.LayoutUpdated)} event handler wired successfully");
         }
     }
 
