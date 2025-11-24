@@ -224,9 +224,9 @@ public sealed partial class MainViewModel : ViewModelBase
 
         // DIAGNOSTIC: Log parameter types BEFORE assignment
         _logger.LogWarning("=== MAINVIEWMODEL CONSTRUCTOR - PARAMETER TYPES ===");
-        _logger.LogWarning("editorViewModel parameter type: {Type}", editorViewModel?.GetType().Name ?? "null");
-        _logger.LogWarning("previewViewModel parameter type: {Type}", previewViewModel?.GetType().Name ?? "null");
-        _logger.LogWarning("aiPanelViewModel parameter type: {Type}", aiPanelViewModel?.GetType().Name ?? "null");
+        _logger.LogWarning("editorViewModel parameter type: {EditorType}", editorViewModel?.GetType().Name ?? "null");
+        _logger.LogWarning("previewViewModel parameter type: {PreviewType}", previewViewModel?.GetType().Name ?? "null");
+        _logger.LogWarning("aiPanelViewModel parameter type: {AIType}", aiPanelViewModel?.GetType().Name ?? "null");
         _logger.LogWarning("=== END PARAMETER TYPES ===");
 
         _dockSerializer = dockSerializer;
