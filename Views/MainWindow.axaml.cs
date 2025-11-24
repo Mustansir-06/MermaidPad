@@ -600,6 +600,19 @@ public sealed partial class MainWindow : Window
         // Check if panels already exist in the visual tree
         // (LayoutUpdated may have already fired during XAML initialization before we could wire the handler)
         _logger.LogInformation("=== CHECKING FOR EXISTING PANELS IN VISUAL TREE ===");
+
+        // DIAGNOSTIC: Log ALL visual descendants to see what DockControl is actually rendering
+        _logger.LogWarning("=== DIAGNOSING DOCKCONTROL VISUAL TREE ===");
+        var allDescendants = MainDock.GetVisualDescendants().ToList();
+        _logger.LogWarning("Total visual descendants: {Count}", allDescendants.Count);
+        foreach (var descendant in allDescendants.Take(20)) // Log first 20 to avoid spam
+        {
+            _logger.LogWarning("  - {Type}: {Info}",
+                descendant.GetType().Name,
+                descendant is Control c ? $"Name={c.Name ?? "(unnamed)"}" : "");
+        }
+        _logger.LogWarning("=== END VISUAL TREE DIAGNOSTIC ===");
+
         EditorPanel? editorPanel = MainDock.GetVisualDescendants().OfType<EditorPanel>().FirstOrDefault();
         PreviewPanel? previewPanel = MainDock.GetVisualDescendants().OfType<PreviewPanel>().FirstOrDefault();
         AIPanel? aiPanel = MainDock.GetVisualDescendants().OfType<AIPanel>().FirstOrDefault();
