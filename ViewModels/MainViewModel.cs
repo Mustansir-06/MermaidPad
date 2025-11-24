@@ -147,6 +147,32 @@ public sealed partial class MainViewModel : ViewModelBase
     public partial IDock? Layout { get; set; }
 
     /// <summary>
+    /// Diagnostic partial method called when Layout property changes.
+    /// </summary>
+    partial void OnLayoutChanged(IDock? oldValue, IDock? newValue)
+    {
+        var stackTrace = new System.Diagnostics.StackTrace(true);
+        _logger.LogWarning("=== LAYOUT PROPERTY CHANGED ===");
+        _logger.LogWarning("Old Value: {OldType}, New Value: {NewType}",
+            oldValue?.GetType().Name ?? "null",
+            newValue?.GetType().Name ?? "null");
+        _logger.LogWarning("Stack Trace:");
+        foreach (var frame in stackTrace.GetFrames().Take(10))
+        {
+            var method = frame.GetMethod();
+            if (method != null)
+            {
+                _logger.LogWarning("  at {Type}.{Method} in {File}:line {Line}",
+                    method.DeclaringType?.FullName ?? "unknown",
+                    method.Name,
+                    frame.GetFileName() ?? "unknown",
+                    frame.GetFileLineNumber());
+            }
+        }
+        _logger.LogWarning("=== END LAYOUT PROPERTY CHANGED ===");
+    }
+
+    /// <summary>
     /// Gets a value indicating whether the Save command can execute.
     /// </summary>
     public bool CanSave => EditorViewModel.HasText && IsDirty;
