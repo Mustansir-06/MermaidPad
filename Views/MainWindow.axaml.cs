@@ -580,7 +580,11 @@ public sealed partial class MainWindow : Window
     {
         base.OnLoaded(e);
 
-        _logger.LogInformation("MainWindow loaded - wiring DockControl LayoutUpdated event");
+        _logger.LogInformation("=== MAINWINDOW.ONLOADED FIRED ===");
+        _logger.LogInformation("MainDock exists: {Exists}", MainDock != null);
+        _logger.LogInformation("MainDock.Layout exists: {Exists}", MainDock?.Layout != null);
+        _logger.LogInformation("ViewModel.Layout exists: {Exists}", ViewModel?.Layout != null);
+        _logger.LogInformation("DataContext == ViewModel: {Same}", DataContext == ViewModel);
 
         // Wire DockControl.LayoutUpdated event to find panels after layout calculations complete
         // This is done here (not in constructor) because MainDock must be initialized first

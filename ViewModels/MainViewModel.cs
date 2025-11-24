@@ -268,64 +268,29 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         try
         {
-            string dockLayoutPath = GetDockLayoutPath();
-            bool layoutLoaded = false;
+            // TEMPORARY DEBUG: Always create default layout (skip loading from file)
+            // This isolates the visibility problem from JSON serialization issues
+            _logger.LogInformation("=== LoadLayout START (persistence disabled for debugging) ===");
 
-            if (File.Exists(dockLayoutPath))
+            IRootDock? layout = _dockFactory.CreateLayout();
+            if (layout is not null)
             {
-                try
-                {
-                    // Check if file has content before attempting deserialization
-                    FileInfo fileInfo = new FileInfo(dockLayoutPath);
-                    if (fileInfo.Length > 0)
-                    {
-                        using FileStream stream = File.OpenRead(dockLayoutPath);
-                        IRootDock? rootDockLayout = _dockSerializer.Load<IRootDock?>(stream);
-                        if (rootDockLayout is not null)
-                        {
-                            _dockFactory.InitLayout(rootDockLayout);
-                            _dockState.Restore(rootDockLayout);
-                            Layout = rootDockLayout;
-                            layoutLoaded = true;
-                            _logger.LogInformation("Layout loaded successfully from {Path}", dockLayoutPath);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Layout file is empty, will create default layout");
-                    }
-                }
-                catch (Exception ex) when (ex is JsonException or InvalidOperationException)
-                {
-                    // Corrupt or invalid layout file - delete it
-                    _logger.LogWarning(ex, "Layout file '{DockLayoutPath}' is corrupt or invalid, deleting layout file", dockLayoutPath);
-                    try
-                    {
-                        File.Delete(dockLayoutPath);
-                    }
-                    catch (Exception deleteEx)
-                    {
-                        _logger.LogWarning(deleteEx, "Failed to delete corrupt layout file '{DockLayoutPath}'", dockLayoutPath);
-                    }
-                }
+                _dockFactory.InitLayout(layout);
+                _logger.LogInformation("Default layout created and initialized");
+            }
+            else
+            {
+                _logger.LogError("DockFactory.CreateLayout() returned null!");
             }
 
-            // If layout wasn't loaded, create default
-            if (!layoutLoaded)
-            {
-                _logger.LogInformation("Creating default layout");
-                IRootDock? layout = _dockFactory.CreateLayout();
-                if (layout is not null)
-                {
-                    _dockFactory.InitLayout(layout);
-                }
-
-                Layout = layout;
-            }
+            Layout = layout;
+            _logger.LogInformation("=== LoadLayout END - Layout assigned. Type={LayoutType}, IsNull={IsNull} ===",
+                Layout?.GetType().Name ?? "null",
+                Layout == null);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load or create layout");
+            _logger.LogError(ex, "Failed to create default layout");
         }
     }
 
@@ -337,34 +302,13 @@ public sealed partial class MainViewModel : ViewModelBase
     /// application's base directory, using the specified layout file name.</remarks>
     public void SaveLayout()
     {
-        if (Layout is null)
+        // TEMPORARY DEBUG: Disable saving to avoid JSON serialization errors
+        _logger.LogInformation("=== SaveLayout called but disabled for debugging ===");
+        if (Layout == null)
         {
-            return;
+            _logger.LogWarning("SaveLayout: Layout is null");
         }
-
-        string dockLayoutPath = GetDockLayoutPath();
-        try
-        {
-            // save DockState (e.g., focused panel, panel sizes/positions) before saving layout
-            _dockState.Save(Layout);
-
-            using FileStream stream = File.Create(dockLayoutPath);
-            _dockSerializer.Save(stream, Layout);
-        }
-        catch (Exception ex)
-        {
-            // Possibly corrupt or invalid layout file - delete it
-            _logger.LogError(ex, "Failed to save layout. Assuming layout file '{DockLayoutPath}' is corrupt or invalid, deleting layout file", dockLayoutPath);
-            try
-            {
-                File.Delete(dockLayoutPath);
-            }
-            catch (Exception deleteEx)
-            {
-                _logger.LogWarning(deleteEx, "Failed to delete corrupt layout file '{DockLayoutPath}'", dockLayoutPath);
-            }
-
-        }
+        return;
     }
 
     /// <summary>

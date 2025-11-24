@@ -118,8 +118,12 @@ public sealed partial class App : Application, IDisposable
         MermaidUpdateService updateService = Services.GetRequiredService<MermaidUpdateService>();
         SyntaxHighlightingService syntaxHighlightingService = Services.GetRequiredService<SyntaxHighlightingService>();
         ILogger<MainWindow> logger = Services.GetRequiredService<ILogger<MainWindow>>();
-        MainViewModel mainViewModel = Services.GetRequiredService<MainViewModel>();
 
+        Log.Information("=== CREATING MAINVIEWMODEL (before MainWindow exists) ===");
+        MainViewModel mainViewModel = Services.GetRequiredService<MainViewModel>();
+        Log.Information("=== MAINVIEWMODEL CREATED - Layout exists: {HasLayout} ===", mainViewModel.Layout != null);
+
+        Log.Information("=== CREATING MAINWINDOW ===");
         MainWindow mainWindow = new MainWindow(
             logger,
             renderer,
@@ -130,6 +134,7 @@ public sealed partial class App : Application, IDisposable
             DataContext = mainViewModel,
             ViewModel = mainViewModel
         };
+        Log.Information("=== MAINWINDOW CREATED ===");
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
