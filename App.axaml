@@ -34,6 +34,7 @@
   <Application.Styles>
     <!--<StyleInclude Source="avares://MermaidPad/Styles/FluentTheme.axaml" />-->
     <FluentTheme />
+    <StyleInclude Source="avares://Dock.Avalonia/Themes/DockFluentTheme.axaml" />
     <StyleInclude Source="avares://MermaidPad/Resources/Styles/Styles.axaml" />
   </Application.Styles>
 </Application>
