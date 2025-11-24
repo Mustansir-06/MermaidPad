@@ -277,6 +277,26 @@ public sealed partial class MainViewModel : ViewModelBase
             {
                 _dockFactory.InitLayout(layout);
                 _logger.LogInformation("Default layout created and initialized");
+
+                // DEBUG: Check if Context is set on tools
+                if (layout.VisibleDockables?.Count > 0)
+                {
+                    var proportionalDock = layout.VisibleDockables[0] as ProportionalDock;
+                    if (proportionalDock?.VisibleDockables != null)
+                    {
+                        _logger.LogInformation("=== INSPECTING LAYOUT STRUCTURE ===");
+                        foreach (var dockable in proportionalDock.VisibleDockables)
+                        {
+                            if (dockable is Tool tool)
+                            {
+                                _logger.LogInformation("Tool: Id={Id}, Title={Title}, Context={Context}, ContextType={ContextType}",
+                                    tool.Id, tool.Title,
+                                    tool.Context != null ? "SET" : "NULL",
+                                    tool.Context?.GetType().Name ?? "null");
+                            }
+                        }
+                    }
+                }
             }
             else
             {
@@ -332,6 +352,8 @@ public sealed partial class MainViewModel : ViewModelBase
     /// on context resolution for docked panels.</remarks>
     private void InitializeContextLocator()
     {
+        _logger.LogInformation("=== INITIALIZING CONTEXTLOCATOR ===");
+
         // Set up DefaultContextLocator and ContextLocator to map panel IDs to ViewModels
         _dockFactory.DefaultContextLocator = () => this;
         _dockFactory.ContextLocator = new Dictionary<string, Func<object?>>
@@ -340,6 +362,12 @@ public sealed partial class MainViewModel : ViewModelBase
             ["Preview"] = () => PreviewViewModel,
             ["AIAssistant"] = () => AIPanelViewModel
         };
+
+        _logger.LogInformation("ContextLocator configured with 3 mappings: Editor, Preview, AIAssistant");
+        _logger.LogInformation("EditorViewModel: {Type}, PreviewViewModel: {Type}, AIPanelViewModel: {Type}",
+            EditorViewModel.GetType().Name,
+            PreviewViewModel.GetType().Name,
+            AIPanelViewModel.GetType().Name);
     }
 
     /// <summary>
