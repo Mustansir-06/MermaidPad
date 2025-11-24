@@ -7,6 +7,8 @@
   xmlns:converters="clr-namespace:MermaidPad.Converters"
   xmlns:dock="clr-namespace:Dock.Avalonia.Controls;assembly=Dock.Avalonia"
   xmlns:dockModel="clr-namespace:Dock.Model.Mvvm.Controls;assembly=Dock.Model.Mvvm"
+  xmlns:panelsViewModels="clr-namespace:MermaidPad.ViewModels.Panels"
+  xmlns:panelsViews="clr-namespace:MermaidPad.Views.Panels"
   Title="{Binding WindowTitle}"
   Width="1200"
   Height="800"
