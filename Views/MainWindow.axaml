@@ -130,6 +130,7 @@
       x:Name="MainDock"
       IsVisible="true"
       Margin="6,0,6,6"
+      Factory="{Binding DockFactory}"
       Layout="{Binding Layout}">
       <dock:DockControl.DataTemplates>
         <!-- Editor Panel Template - keyed by EditorViewModel -->

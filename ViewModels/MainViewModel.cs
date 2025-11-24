@@ -88,6 +88,11 @@ public sealed partial class MainViewModel : ViewModelBase
     /// </summary>
     public AIPanelViewModel AIPanelViewModel { get; private set; }
 
+    /// <summary>
+    /// Gets the dock factory used for creating and managing dockable panels.
+    /// </summary>
+    public IFactory DockFactory => _dockFactory;
+
     #endregion Properties (non-MVVM)
 
     #region MVVM properties
@@ -398,7 +403,7 @@ public sealed partial class MainViewModel : ViewModelBase
         };
 
         _logger.LogInformation("ContextLocator configured with 3 mappings: Editor, Preview, AIAssistant");
-        _logger.LogInformation("EditorViewModel: {Type}, PreviewViewModel: {Type}, AIPanelViewModel: {Type}",
+        _logger.LogInformation("EditorViewModel: {EditorType}, PreviewViewModel: {PreviewType}, AIPanelViewModel: {AIType}",
             EditorViewModel.GetType().Name,
             PreviewViewModel.GetType().Name,
             AIPanelViewModel.GetType().Name);
