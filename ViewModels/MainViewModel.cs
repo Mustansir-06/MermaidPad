@@ -221,6 +221,14 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel aiPanelViewModel)
     {
         _logger = logger;
+
+        // DIAGNOSTIC: Log parameter types BEFORE assignment
+        _logger.LogWarning("=== MAINVIEWMODEL CONSTRUCTOR - PARAMETER TYPES ===");
+        _logger.LogWarning("editorViewModel parameter type: {Type}", editorViewModel?.GetType().Name ?? "null");
+        _logger.LogWarning("previewViewModel parameter type: {Type}", previewViewModel?.GetType().Name ?? "null");
+        _logger.LogWarning("aiPanelViewModel parameter type: {Type}", aiPanelViewModel?.GetType().Name ?? "null");
+        _logger.LogWarning("=== END PARAMETER TYPES ===");
+
         _dockSerializer = dockSerializer;
         _dockState = dockState;
         _dockFactory = dockFactory;
