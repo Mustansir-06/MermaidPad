@@ -24,6 +24,8 @@ using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
+using MermaidPad.ViewModels.Panels;
+using MermaidPad.Views.Panels;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics.CodeAnalysis;
 
@@ -33,11 +35,9 @@ namespace MermaidPad.Factories;
 /// Factory for creating and configuring the docking layout for MermaidPad.
 /// </summary>
 /// <remarks>
-/// This factory follows the ContextLocator pattern from the Dock library documentation.
-/// The caller (MainViewModel) is responsible for setting the ContextLocator property
-/// before calling InitLayout. This avoids circular dependencies and follows the
-/// standard Dock library pattern where the Factory creates structure and the caller
-/// provides the ViewModel mappings.
+/// This factory creates both the dock structure AND the actual panel views,
+/// eliminating reliance on DataTemplate resolution which doesn't work reliably
+/// with Dock.Avalonia's control recycling mechanism.
 /// </remarks>
 [SuppressMessage("ReSharper", "MergeIntoPattern", Justification = "Improves readability")]
 [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global", Justification = "Instantiated via dependency injection")]
@@ -54,13 +54,26 @@ public sealed class DockFactory : Factory
     private IDockable? _aiTool;
 
     private readonly ILogger<DockFactory>? _logger;
+    private readonly EditorViewModel _editorViewModel;
+    private readonly PreviewViewModel _previewViewModel;
+    private readonly AIPanelViewModel _aiPanelViewModel;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DockFactory"/> class.
     /// </summary>
+    /// <param name="editorViewModel">The editor panel view model.</param>
+    /// <param name="previewViewModel">The preview panel view model.</param>
+    /// <param name="aiPanelViewModel">The AI panel view model.</param>
     /// <param name="logger">Optional logger for diagnostic output. May be null during bootstrapping.</param>
-    public DockFactory(ILogger<DockFactory>? logger = null)
+    public DockFactory(
+        EditorViewModel editorViewModel,
+        PreviewViewModel previewViewModel,
+        AIPanelViewModel aiPanelViewModel,
+        ILogger<DockFactory>? logger = null)
     {
+        _editorViewModel = editorViewModel;
+        _previewViewModel = previewViewModel;
+        _aiPanelViewModel = aiPanelViewModel;
         _logger = logger;
     }
 
@@ -77,12 +90,17 @@ public sealed class DockFactory : Factory
     /// docks.</returns>
     public override IRootDock CreateLayout()
     {
-        // Create tool docks for each panel
-        // Note: Contexts will be assigned via ContextLocator in InitLayout()
+        // Create actual panel views with their ViewModels
+        EditorPanel editorPanel = new EditorPanel { DataContext = _editorViewModel };
+        PreviewPanel previewPanel = new PreviewPanel { DataContext = _previewViewModel };
+        AIPanel aiPanel = new AIPanel { DataContext = _aiPanelViewModel };
+
+        // Create tool docks for each panel with the views assigned
         Tool editorTool = new Tool
         {
             Id = EditorDockId,
             Title = "Editor",
+            Context = editorPanel,  // Assign the actual view, not ViewModel
             CanClose = false,
             CanFloat = true,
             CanPin = true
@@ -92,6 +110,7 @@ public sealed class DockFactory : Factory
         {
             Id = PreviewDockId,
             Title = "Preview",
+            Context = previewPanel,  // Assign the actual view, not ViewModel
             CanClose = false,
             CanFloat = true,
             CanPin = true
@@ -101,6 +120,7 @@ public sealed class DockFactory : Factory
         {
             Id = AIDockId,
             Title = "AI Assistant",
+            Context = aiPanel,  // Assign the actual view, not ViewModel
             CanClose = false,
             CanFloat = true,
             CanPin = true
