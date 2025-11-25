@@ -8,7 +8,6 @@
   xmlns:panelsViews="clr-namespace:MermaidPad.Views.Panels">
 
   <Application.Resources>
-    <ControlRecycling x:Key="ControlRecyclingKey" TryToUseIdAsKey="True" />
     <Color x:Key="RegionColor">Transparent</Color>
     <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
     <converters:BoolToTooltipConverter x:Key="BoolToTooltipConverter" />
@@ -29,10 +28,7 @@
   </Application.DataTemplates>
 
   <Application.Styles>
-    <Style Selector="DockControl">
-      <Setter Property="(ControlRecyclingDataTemplate.ControlRecycling)"
-              Value="{StaticResource ControlRecyclingKey}" />
-    </Style>
+    <!-- ControlRecycling disabled - it can interfere with DataTemplate rendering in DockControl -->
 
     <!-- Include Dock.Avalonia theme (required for DockControl to render panels) -->
     <DockFluentTheme />

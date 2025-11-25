@@ -35,9 +35,9 @@ namespace MermaidPad.Factories;
 /// Factory for creating and configuring the docking layout for MermaidPad.
 /// </summary>
 /// <remarks>
-/// This factory creates both the dock structure AND the actual panel views,
-/// eliminating reliance on DataTemplate resolution which doesn't work reliably
-/// with Dock.Avalonia's control recycling mechanism.
+/// This factory uses the ContextLocator pattern to map Tool IDs to ViewModels.
+/// DataTemplates defined in App.axaml handle rendering ViewModels as Views.
+/// This approach supports layout serialization, floating windows, and proper MVVM separation.
 /// </remarks>
 [SuppressMessage("ReSharper", "MergeIntoPattern", Justification = "Improves readability")]
 [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global", Justification = "Instantiated via dependency injection")]
@@ -82,25 +82,20 @@ public sealed class DockFactory : Factory
     /// panels arranged horizontally.
     /// </summary>
     /// <remarks>
-    /// The returned layout includes three tool docks—Editor, Preview, and AI Assistant—organized in
-    /// a horizontal split. Contexts are set via ContextLocator in InitLayout, following the recommended
-    /// pattern from the Dock library documentation.
+    /// <para>The returned layout includes three tool docks—Editor, Preview, and AI Assistant—organized in
+    /// a horizontal split with splitters between them.</para>
+    /// <para>Tool.Context is populated by ContextLocator during InitLayout, which maps Tool IDs to ViewModels.
+    /// DataTemplates then render ViewModels as Views. This pattern supports serialization and floating windows.</para>
     /// </remarks>
     /// <returns>An <see cref="IRootDock"/> instance representing the main layout with editor, preview, and AI assistant tool
     /// docks.</returns>
     public override IRootDock CreateLayout()
     {
-        // Create actual panel views with their ViewModels
-        EditorPanel editorPanel = new EditorPanel { DataContext = _editorViewModel };
-        PreviewPanel previewPanel = new PreviewPanel { DataContext = _previewViewModel };
-        AIPanel aiPanel = new AIPanel { DataContext = _aiPanelViewModel };
-
-        // Create tool docks for each panel with the views assigned
+        // Create tools without Context - ContextLocator will populate them during InitLayout
         Tool editorTool = new Tool
         {
             Id = EditorDockId,
             Title = "Editor",
-            Context = editorPanel,  // Assign the actual view, not ViewModel
             CanClose = false,
             CanFloat = true,
             CanPin = true
@@ -110,7 +105,6 @@ public sealed class DockFactory : Factory
         {
             Id = PreviewDockId,
             Title = "Preview",
-            Context = previewPanel,  // Assign the actual view, not ViewModel
             CanClose = false,
             CanFloat = true,
             CanPin = true
@@ -120,7 +114,6 @@ public sealed class DockFactory : Factory
         {
             Id = AIDockId,
             Title = "AI Assistant",
-            Context = aiPanel,  // Assign the actual view, not ViewModel
             CanClose = false,
             CanFloat = true,
             CanPin = true
@@ -219,9 +212,13 @@ public sealed class DockFactory : Factory
     {
         ArgumentNullException.ThrowIfNull(layout);
 
-        // Note: ContextLocator is no longer needed since we create views directly in CreateLayout
-        // Set it anyway to satisfy the base Factory requirements
-        ContextLocator = new Dictionary<string, Func<object?>>(); // Empty, views are already created
+        // ContextLocator maps Tool IDs to ViewModels - DataTemplates will render them as Views
+        ContextLocator = new Dictionary<string, Func<object?>>
+        {
+            [EditorDockId] = () => _editorViewModel,
+            [PreviewDockId] = () => _previewViewModel,
+            [AIDockId] = () => _aiPanelViewModel
+        };
         DefaultContextLocator = () => this;
 
         // Provide a DefaultHostWindowLocator implementation
@@ -233,7 +230,7 @@ public sealed class DockFactory : Factory
             [nameof(IDockWindow)] = static () => new HostWindow()
         };
 
-        // Set up the DockableLocator
+        // Set up the DockableLocator for layout deserialization
         DockableLocator = new Dictionary<string, Func<IDockable?>>
         {
             [RootDockId] = () => _rootDock,
