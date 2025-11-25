@@ -246,7 +246,7 @@ public sealed partial class MainViewModel : ViewModelBase
         AIPanelViewModel.DiagramGenerated += OnDiagramGenerated;
 
         // Initialize docking layout and state
-        InitializeContextLocator();
+        // NOTE: ContextLocator is now set up inside DockFactory.InitLayout (no longer needed here)
         // NOTE: InitializeDockState() is NOT called here because the MainWindow doesn't exist yet
         // at this point in the lifecycle. The dock state is managed automatically by the DockState
         // service and is saved when the layout changes or the application closes.
@@ -386,18 +386,6 @@ public sealed partial class MainViewModel : ViewModelBase
     /// <remarks>This method configures the dock factory to resolve view models for specific panels, enabling
     /// dynamic retrieval of context objects based on panel IDs. It should be called before any operations that depend
     /// on context resolution for docked panels.</remarks>
-    private void InitializeContextLocator()
-    {
-        // Set up DefaultContextLocator and ContextLocator to map panel IDs to ViewModels
-        _dockFactory.DefaultContextLocator = () => this;
-        _dockFactory.ContextLocator = new Dictionary<string, Func<object?>>
-        {
-            ["Editor"] = () => EditorViewModel,
-            ["Preview"] = () => PreviewViewModel,
-            ["AIAssistant"] = () => AIPanelViewModel
-        };
-    }
-
     /// <summary>
     /// Initializes the dock state by saving the current layout of the main dock, if available.
     /// </summary>

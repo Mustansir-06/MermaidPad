@@ -218,10 +218,11 @@ public sealed class DockFactory : Factory
     public override void InitLayout(IDockable layout)
     {
         ArgumentNullException.ThrowIfNull(layout);
-        if (DefaultContextLocator is null || ContextLocator is null)
-        {
-            throw new InvalidOperationException($"Both {nameof(ContextLocator)} and {nameof(DefaultContextLocator)} must be set before calling {nameof(InitLayout)}.");
-        }
+
+        // Note: ContextLocator is no longer needed since we create views directly in CreateLayout
+        // Set it anyway to satisfy the base Factory requirements
+        ContextLocator = new Dictionary<string, Func<object?>>(); // Empty, views are already created
+        DefaultContextLocator = () => this;
 
         // Provide a DefaultHostWindowLocator implementation
         DefaultHostWindowLocator = static () => new HostWindow();
@@ -232,7 +233,7 @@ public sealed class DockFactory : Factory
             [nameof(IDockWindow)] = static () => new HostWindow()
         };
 
-        // Now set up the DockableLocator
+        // Set up the DockableLocator
         DockableLocator = new Dictionary<string, Func<IDockable?>>
         {
             [RootDockId] = () => _rootDock,
