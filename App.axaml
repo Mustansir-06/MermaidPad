@@ -3,7 +3,9 @@
   xmlns="https://github.com/avaloniaui"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:converters="clr-namespace:MermaidPad.Converters"
-  xmlns:dock="clr-namespace:Dock.Avalonia.Controls;assembly=Dock.Avalonia">
+  xmlns:dock="clr-namespace:Dock.Avalonia.Controls;assembly=Dock.Avalonia"
+  xmlns:panelsViewModels="clr-namespace:MermaidPad.ViewModels.Panels"
+  xmlns:panelsViews="clr-namespace:MermaidPad.Views.Panels">
 
   <Application.Resources>
     <ControlRecycling x:Key="ControlRecyclingKey" TryToUseIdAsKey="True" />
@@ -12,6 +14,19 @@
     <converters:BoolToTooltipConverter x:Key="BoolToTooltipConverter" />
     <converters:InverseBoolToObjectConverter x:Key="InverseBoolToObjectConverter" />
   </Application.Resources>
+
+  <!-- DataTemplates for Dock panels - maps ViewModels to Views -->
+  <Application.DataTemplates>
+    <DataTemplate DataType="panelsViewModels:EditorViewModel">
+      <panelsViews:EditorPanel />
+    </DataTemplate>
+    <DataTemplate DataType="panelsViewModels:PreviewViewModel">
+      <panelsViews:PreviewPanel />
+    </DataTemplate>
+    <DataTemplate DataType="panelsViewModels:AIPanelViewModel">
+      <panelsViews:AIPanel />
+    </DataTemplate>
+  </Application.DataTemplates>
 
   <Application.Styles>
     <Style Selector="DockControl">
