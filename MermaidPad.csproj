@@ -133,7 +133,7 @@
 		<AvaloniaResource Remove="**/*.axaml" />
 		<AvaloniaResource Remove="node_modules/**" />
 	</ItemGroup>
-
+	
 	<ItemGroup>
 		<AvaloniaXaml Include="**/*.axaml" />
 	</ItemGroup>
@@ -141,12 +141,25 @@
 	<ItemGroup>
 	  <AdditionalFiles Remove="Dialogs/MessageDialog.axaml" />
 	  <AdditionalFiles Remove="Dialogs/ExportDialog.axaml" />
+	  <AdditionalFiles Remove="Resources/Styles/Styles.axaml" />
+	  <AdditionalFiles Remove="Resources/Themes/ApplicationThemes/Dark/*.axaml" />
+	  <AdditionalFiles Remove="Resources/Themes/ApplicationThemes/Light/*.axaml" />
 	  <AdditionalFiles Remove="Views/Dialogs/ProgressDialog.axaml" />
 	  <AdditionalFiles Remove="Views/Dialogs/ConfirmationDialog.axaml" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Application Theme Resources -->
+		<AvaloniaResource Include="Resources/Themes/ApplicationThemes/Light/*.axaml" />
+		<AvaloniaResource Include="Resources/Themes/ApplicationThemes/Dark/*.axaml" />
+	</ItemGroup>
+
+	<ItemGroup>
 	  <None Remove="Resources/Grammars/mermaid.tmLanguage.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <AvaloniaResource Include="Resources/Styles/Styles.axaml" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -173,9 +186,9 @@
 	  <AvaloniaXaml Update="Views/Dialogs/ProgressDialog.axaml">
 	    <SubType>Designer</SubType>
 	  </AvaloniaXaml>
-		<AvaloniaXaml Update="Views/Dialogs/ConfirmationDialog.axaml">
-			<SubType>Designer</SubType>
-		</AvaloniaXaml>
+	  <AvaloniaXaml Update="Views/Dialogs/ConfirmationDialog.axaml">
+		<SubType>Designer</SubType>
+	  </AvaloniaXaml>
 	</ItemGroup>
 
 	<!-- Import custom targets for asset hash generation -->
