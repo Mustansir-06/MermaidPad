@@ -27,7 +27,9 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using MermaidPad.Infrastructure;
+using MermaidPad.Services.Theming;
 using MermaidPad.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -106,6 +108,10 @@ public sealed partial class App : Application, IDisposable
         SetupGlobalExceptionHandlers();
 
         Services = ServiceConfiguration.BuildServiceProvider();
+        IThemeService themeService = Services.GetRequiredService<IThemeService>();
+
+        // Initialize theme (applies saved or default theme)
+        themeService.Initialize();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit.

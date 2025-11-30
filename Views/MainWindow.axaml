@@ -29,7 +29,7 @@
   <DockPanel>
     <!-- Menu Bar -->
     <Menu DockPanel.Dock="Top">
-      <MenuItem Header="_File">
+      <MenuItem Header="_File" InputGesture="Alt+F">
         <MenuItem
           Command="{Binding OpenFileCommand}"
           CommandParameter="{Binding StorageProvider, RelativeSource={RelativeSource AncestorType=TopLevel}}"
@@ -67,6 +67,10 @@
           Header="E_xit"
           InputGesture="Alt+F4" />
       </MenuItem>
+      <MenuItem Header="_View" InputGesture="Alt+V">
+        <MenuItem Header="A_pplication Theme" x:Name="ApplicationThemeMenu" />
+        <MenuItem Header="E_ditor Theme" x:Name="EditorThemeMenu" />
+      </MenuItem>
     </Menu>
 
     <!-- Toolbar -->
@@ -74,7 +78,8 @@
       Margin="6"
       DockPanel.Dock="Top"
       Orientation="Horizontal"
-      Spacing="6">
+      Spacing="6"
+      Classes="Toolbar">
       <Button
         Width="90"
         Command="{Binding RenderCommand}"
@@ -95,46 +100,34 @@
         IsChecked="{Binding LivePreviewEnabled}"
         IsEnabled="{Binding IsWebViewReady}"
         ToolTip.Tip="{Binding !IsWebViewReady, Converter={StaticResource BoolToTooltipConverter}}" />
-      <!--<TextBlock Margin="20,0,4,0" Text="Bundled:" />
-      <TextBlock Text="{Binding BundledMermaidVersion}" />
-      <TextBlock Margin="12,0,4,0" Text="Latest:" />
-      <TextBlock Text="{Binding LatestMermaidVersion}" />-->
+    </StackPanel>
+
+    <!-- Status Bar -->
+    <DockPanel Name="StatusBar" DockPanel.Dock="Bottom" Classes="StatusBar" Height="24">
+      <TextBlock Text="{Binding CurrentMermaidPadVersion}" 
+                 VerticalAlignment="Center" 
+                 Margin="8,0"
+                 HorizontalAlignment="Right"
+                 DockPanel.Dock="Right" />
+      <TextBlock Text="{Binding StatusText}" 
+            VerticalAlignment="Center" 
+            Margin="8,0" />
       <TextBlock
-        Margin="12,0,0,0"
+        Margin="4,0,0,0"
         HorizontalAlignment="Right"
         VerticalAlignment="Center"
         Text="Version:" />
-      <TextBlock
-        HorizontalAlignment="Right"
-        VerticalAlignment="Center"
-        Text="{Binding CurrentMermaidPadVersion}" />
-      <TextBlock
-        Margin="12,0,0,0"
-        VerticalAlignment="Center"
-        Foreground="Gray"
-        Text="{Binding StatusText}" />
-    </StackPanel>
+    </DockPanel>
 
     <!-- Main Content (your existing GridSplitter, Editor, WebView) -->
-    <Grid DockPanel.Dock="Top">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-        <ColumnDefinition Width="2*" />
-      </Grid.ColumnDefinitions>
-
+    <Grid ColumnDefinitions="*,4,*">
       <!-- Text Editor Panel -->
-      <Border
-        Grid.Column="0"
-        Margin="6,0,0,6"
-        BorderBrush="LightGray"
-        BorderThickness="1"
-        CornerRadius="4">
+      <Border Grid.Column="0" BorderThickness="1" Padding="4">
         <edit:TextEditor
           x:Name="Editor"
-          FontFamily="Consolas"
+          FontFamily="Consolas,Courier New,monospace"
+          FontSize="14"
           HorizontalScrollBarVisibility="Auto"
-          LineNumbersForeground="Lime"
           ShowLineNumbers="True"
           VerticalScrollBarVisibility="Auto">
           <edit:TextEditor.ContextMenu>
@@ -151,19 +144,10 @@
       </Border>
 
       <!-- GridSplitter -->
-      <GridSplitter
-        Grid.Column="1"
-        Width="6"
-        Background="Transparent"
-        ResizeDirection="Columns" />
+      <GridSplitter Grid.Column="1" />
 
       <!-- WebView Panel -->
-      <Border
-        Grid.Column="2"
-        Margin="0,0,6,6"
-        BorderBrush="LightGray"
-        BorderThickness="1"
-        CornerRadius="4">
+      <Border Grid.Column="2" BorderThickness="1">
         <Grid>
           <wv:WebView Name="Preview" />
           <TextBlock
