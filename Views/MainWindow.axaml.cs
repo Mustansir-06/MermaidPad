@@ -750,10 +750,6 @@ public sealed partial class MainWindow : Window
             // Initialize the service (verifies grammar resources exist)
             _syntaxHighlightingService.Initialize();
 
-            // Apply Mermaid syntax highlighting with automatic theme detection
-            _syntaxHighlightingService.ApplyTo(Editor);
-
-            _logger.LogInformation("Syntax highlighting initialized successfully");
         }
         catch (Exception ex)
         {
@@ -826,12 +822,13 @@ public sealed partial class MainWindow : Window
     /// <param name="parentMenu">The parent menu to which theme selection items will be added. Must not be null.</param>
     private void PopulateApplicationThemeMenu(MenuItem parentMenu)
     {
-        ApplicationTheme currentTheme = _themeService.CurrentApplicationTheme;
+        ApplicationTheme currentTheme = _vm.CurrentApplicationTheme;
         _applicationThemeMenuItems.Clear();
 
         // Initialize previous theme tracker
         _previousApplicationTheme = currentTheme;
 
+        //TODO - DaveBlack: this is ridiculous to first get the enum value and then go get the name separately
         foreach (ApplicationTheme theme in _vm.GetAvailableApplicationThemes())
         {
             MenuItem menuItem = new MenuItem
@@ -898,12 +895,13 @@ public sealed partial class MainWindow : Window
     /// <param name="parentMenu">The parent menu to which editor theme menu items will be added. Must not be null.</param>
     private void PopulateEditorThemeMenu(MenuItem parentMenu)
     {
-        ThemeName currentTheme = _themeService.CurrentEditorTheme;
+        ThemeName currentTheme = _vm.CurrentEditorTheme;
         _editorThemeMenuItems.Clear();
 
         // Initialize previous theme tracker
         _previousEditorTheme = currentTheme;
 
+        //TODO - DaveBlack: this is ridiculous to first get the enum value and then go get the name separately
         foreach (ThemeName theme in _vm.GetAvailableEditorThemes())
         {
             MenuItem menuItem = new MenuItem
@@ -1114,9 +1112,9 @@ public sealed partial class MainWindow : Window
         IDisposable dThemeVariant = Disposable.Create(UnsubscribeThemeVariantChanged);
         AddOrDisposeSubscription(dThemeVariant);
 
-        // Apply saved editor theme (ThemeService.Initialize() loaded it but couldn't apply without editor)
-        _themeService.ApplyEditorTheme(Editor, _themeService.CurrentEditorTheme);
-        _logger.LogInformation("Applied saved editor theme: {EditorTheme}", _themeService.CurrentEditorTheme);
+        // Apply saved editor theme (ThemeService.Initialize() loaded it but couldn't apply since editor was not created yet)
+        _themeService.ApplyEditorTheme(Editor, _vm.CurrentEditorTheme);
+        _logger.LogInformation("Applied saved editor theme: {EditorTheme}", _vm.CurrentEditorTheme);
 
         // Initialize theme menus
         if (ApplicationThemeMenu is not null)
@@ -1168,8 +1166,16 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// Handles the event that occurs when the text in the editor control changes.
     /// </summary>
-    /// <remarks>This handler synchronizes the editor's text with the underlying view model, using debouncing
-    /// to minimize unnecessary updates. If text change suppression is active, the event is ignored.</remarks>
+    /// <remarks>
+    /// <para>This handler synchronizes the editor's text with the underlying view model, using debouncing
+    /// to minimize unnecessary updates. If text change suppression is active, the event is ignored.
+    /// </para>
+    /// <para>
+    /// IMPORTANT: This pattern of manual 2-way synchronization of the editor text with the ViewModel is
+    /// necessary because AvaloniaEdit's TextEditor control doesn't properly support two-way binding on
+    /// its Text property out of the box. This is a known limitation of the control.
+    /// </para>
+    /// </remarks>
     /// <param name="sender">The source of the event, typically the editor control whose text was modified.</param>
     /// <param name="e">An <see cref="EventArgs"/> instance containing event data.</param>
     private void OnEditorTextChanged(object? sender, EventArgs e)
